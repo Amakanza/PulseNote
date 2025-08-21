@@ -1,0 +1,22 @@
+{
+  "id": "physio-default",
+  "name": "Physiotherapy Management Report",
+  "fields": [
+    "patient_name",
+    "dob",
+    "medical_aid",
+    "medical_aid_number",
+    "occupation",
+    "physiotherapist",
+    "referral_diagnosis",
+    "doctor_name",
+    "intro_paragraph",
+    "assessment_paragraph",
+    "objective_paragraph",
+    "reassessment_paragraph",
+    "closing",
+    "physio_signature_name",
+    "physio_signature_title"
+  ],
+  "notes": "Schema inferred from the provided template (.docx)."
+}

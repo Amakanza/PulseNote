@@ -1,0 +1,10 @@
+﻿node_modules/
+.next/
+.vercel/
+dist/
+build/
+.pnpm-store/
+.env*
+*.log
+.DS_Store
+Thumbs.db
