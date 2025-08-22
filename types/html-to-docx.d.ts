@@ -1,9 +1,7 @@
 declare module "html-to-docx" {
-  // Minimal signature to satisfy TS; widen as needed.
-  const htmlToDocx: (
+  export default function htmlToDocx(
     html: string,
-    styles?: any | null,
+    headerHtml?: string | null,
     options?: any
-  ) => Promise<ArrayBuffer | Uint8Array | Buffer>;
-  export default htmlToDocx;
+  ): Promise<ArrayBuffer | Uint8Array | Buffer>;
 }
