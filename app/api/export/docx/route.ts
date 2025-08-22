@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
     const safeName = sanitizeFileName(filename);
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
