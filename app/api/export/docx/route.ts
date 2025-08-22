@@ -19,9 +19,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "html is required" }, { status: 400 });
     }
 
-    // ✅ Dynamic import so TS doesn't need type defs at build time,
-    // and the module loads only on the server.
-    const { default: htmlToDocx }: any = await import("html-to-docx");
+    // ⬇️ Dynamic import to keep it server-only
+    // @ts-expect-error - module ships no types
+    const { default: htmlToDocx } = await import("html-to-docx");
 
     const htmlContent = `<!DOCTYPE html>
 <html>
@@ -44,9 +44,9 @@ export async function POST(req: Request) {
       pageNumber: false,
     });
 
-    // Normalize to Node Buffer
+    // Normalize to a Node Buffer
     const fileBuffer =
-      out instanceof ArrayBuffer ? Buffer.from(new Uint8Array(out)) : Buffer.from(out);
+      out instanceof ArrayBuffer ? Buffer.from(new Uint8Array(out)) : Buffer.from(out as any);
 
     const safeName = sanitizeFileName(filename);
 
