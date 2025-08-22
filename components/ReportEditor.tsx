@@ -16,7 +16,6 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
   const [fileName, setFileName] = useState("Feedback_Report");
 
   useEffect(() => {
-    // restore last used name (optional)
     const saved = localStorage.getItem("report:fileName");
     if (saved) setFileName(saved);
   }, []);
@@ -67,8 +66,6 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-
-      // Fallback: still use client-side name in case header is ignored by the browser
       const a = document.createElement("a");
       a.href = url;
       a.download = `${fileName || "Feedback_Report"}.docx`;
@@ -83,15 +80,13 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
 
   return (
     <div className="panel overflow-hidden">
-      {/* Sticky toolbar */}
-      <div className="sticky top-[72px] z-10 bg-white/70 backdrop-blur border-b">
-        <div className="px-3 py-2 flex items-center gap-2 flex-wrap">
+      {/* Sticky + scrollable toolbar */}
+      <div className="sticky top-[72px] z-10 bg-white/80 backdrop-blur border-b overflow-x-auto">
+        <div className="flex items-center gap-2 min-w-max px-3 py-2">
           <button className="btn" onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
           <button className="btn" onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
-          <div className="hidden md:block w-px h-6 bg-slate-200" />
           <button className="btn" onClick={() => editor?.chain().focus().toggleBulletList().run()}>Bullets</button>
           <button className="btn" onClick={() => editor?.chain().focus().toggleOrderedList().run()}>Numbers</button>
-          <div className="hidden md:block w-px h-6 bg-slate-200" />
           <button className="btn" onClick={() => editor?.chain().focus().setHeading({ level: 1 }).run()}>H1</button>
           <button className="btn" onClick={() => editor?.chain().focus().setHeading({ level: 2 }).run()}>H2</button>
           <button className="btn" onClick={() => editor?.chain().focus().setHeading({ level: 3 }).run()}>H3</button>
@@ -102,7 +97,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
           <div className="flex items-center gap-2">
             <label className="label">File name</label>
             <input
-              className="input w-48"
+              className="input w-40"
               placeholder="Feedback_Report"
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
@@ -111,10 +106,10 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
             <span className="small text-slate-500">.docx</span>
           </div>
 
-          <button className="btn" onClick={saveLocal} title="Save to browser storage">Save</button>
+          <button className="btn" onClick={saveLocal}>Save</button>
           <button className="btn" onClick={exportHTML}>Export HTML</button>
           <button className="btn btn-primary" onClick={exportDocx} disabled={downloading}>
-            {downloading ? "Creating DOCX…" : "Download DOCX"}
+            {downloading ? "Creating…" : "Download DOCX"}
           </button>
         </div>
       </div>
