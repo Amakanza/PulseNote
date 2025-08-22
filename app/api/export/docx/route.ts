@@ -1,11 +1,11 @@
+// app/api/export/docx/route.ts
 import { NextResponse } from "next/server";
-import htmlToDocx from "html-to-docx";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function sanitizeFileName(name: string, fallback = "Feedback_Report") {
   const base = (name || "").trim() || fallback;
-  // remove illegal characters: \ / : * ? " < > | and control chars
   let safe = base.replace(/[\\/:*?"<>|\x00-\x1F]/g, "").slice(0, 80);
   if (!safe) safe = fallback;
   if (!safe.toLowerCase().endsWith(".docx")) safe += ".docx";
@@ -18,6 +18,10 @@ export async function POST(req: Request) {
     if (!html || typeof html !== "string") {
       return NextResponse.json({ error: "html is required" }, { status: 400 });
     }
+
+    // ✅ Dynamic import so TS doesn't need type defs at build time,
+    // and the module loads only on the server.
+    const { default: htmlToDocx }: any = await import("html-to-docx");
 
     const htmlContent = `<!DOCTYPE html>
 <html>
@@ -34,18 +38,23 @@ export async function POST(req: Request) {
 <body>${html}</body>
 </html>`;
 
-    const fileBuffer = await htmlToDocx(htmlContent, null, {
+    const out = await htmlToDocx(htmlContent, null, {
       table: { row: { cantSplit: true } },
       footer: true,
       pageNumber: false,
     });
+
+    // Normalize to Node Buffer
+    const fileBuffer =
+      out instanceof ArrayBuffer ? Buffer.from(new Uint8Array(out)) : Buffer.from(out);
 
     const safeName = sanitizeFileName(filename);
 
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "Content-Disposition": `attachment; filename="${safeName}"`,
       },
     });
