@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-emerald-50 via-white to-sky-50" />
           <div className="container-narrow py-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/publiclogo.png" alt="PulseNote logo" className="h-8 w-auto" />
+              <Image src="/publiclogo.png" alt="PulseNote logo" width={128} height={32} priority />
               <div className="leading-tight">
               <div className="text-xs text-slate-500">Feedback Reporter</div>
               <h1 className="text-lg font-semibold tracking-tight">PulseNote</h1>

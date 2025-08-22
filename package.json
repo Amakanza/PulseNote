@@ -21,6 +21,7 @@
     "@tiptap/react": "^2.5.9",
     "@tiptap/starter-kit": "^2.5.9",
     "classnames": "^2.5.1",
+    "encoding": "^0.1.13",
     "html-docx-js": "^0.1.0",
     "html-docx-js-typescript": "^0.1.5",
     "html-to-docx": "^1.8.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
+    "@types/html-to-docx": "^1.8.0",
     "@types/node": "^20.12.12",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
