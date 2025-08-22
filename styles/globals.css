@@ -22,7 +22,11 @@
 .btn-primary { @apply bg-emerald-600 text-white border-transparent; }
 .btn-primary:hover { @apply bg-emerald-700; }
 
-/* Inputs */
+.btn {
+  touch-action: manipulation;
+}
+.panel { position: relative; }      
+
 .input, .textarea, .select {
   @apply w-full rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-sm
          focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30;
