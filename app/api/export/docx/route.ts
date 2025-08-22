@@ -20,7 +20,6 @@ export async function POST(req: Request) {
     }
 
     // ⬇️ Dynamic import to keep it server-only
-    // @ts-expect-error - module ships no types
     const { default: htmlToDocx } = await import("html-to-docx");
 
     const htmlContent = `<!DOCTYPE html>
