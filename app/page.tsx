@@ -31,7 +31,7 @@ export default function HomePage() {
     const res = await fetch("/api/draft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, templateId: "physio-default" }),
+      body: JSON.stringify({ messages, templateId: "default" }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Draft failed");
@@ -78,7 +78,10 @@ export default function HomePage() {
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a"); a.href = url; a.download = "Feedback_Report.docx"; a.click();
+      const a = document.createElement("a"); 
+      a.href = url; 
+      a.download = "Feedback_Report.docx"; 
+      a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) { alert(e.message || "Export failed"); }
   }
@@ -90,7 +93,7 @@ export default function HomePage() {
     <div className="space-y-6">
       {/* Top Bar */}
       <section className="panel p-4 md:p-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">WhatsApp → Report</h2>
             <p className="small mt-1 text-slate-600">Paste chat on the left, actions in the middle, live draft on the right.</p>
@@ -151,11 +154,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
+      
       {/* Bottom actions (mobile) */}
-      <div className="md:hidden flex items-center justify-end gap-2">
-        <button className="btn" onClick={gotoEditor} disabled={!previewHtml}>Open Editor</button>
+      <div className="md:hidden flex flex-wrap items-center justify-end gap-2">
+        <button className="btn" onClick={handleAnalyze} disabled={!raw || loading}>{loading ? "…" : "Analyze"}</button>
+        <button className="btn" onClick={gotoEditor} disabled={!previewHtml}>Edit</button>
         <button className="btn btn-primary" onClick={exportDocx} disabled={!previewHtml}>Download DOCX</button>
+        <button className="btn" onClick={handleClear} disabled={!raw && !previewHtml}>Clear</button>
       </div>
     </div>
   );
