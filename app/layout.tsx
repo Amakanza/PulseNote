@@ -1,13 +1,21 @@
 // app/layout.tsx
-import "../styles/globals.css";
+import "./globals.css";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
-import type { Metadata, Viewport } from "next";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "PulseNote",
-  description: "Paste chat on the left, actions in the middle, live draft on the right.",
+  description: "Paste WhatsApp feedback, get a structured report.",
+};
+  
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,8 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex items-center gap-3">
               <Image src="/publiclogo.png" alt="PulseNote logo" width={128} height={32} priority />
               <div className="leading-tight">
-              <div className="text-xs text-slate-500">Feedback Reporter</div>
-              <h1 className="text-lg font-semibold tracking-tight">PulseNote</h1>
+                <div className="text-xs text-slate-500">Feedback Reporter</div>
+                <h1 className="text-lg font-semibold tracking-tight">PulseNote</h1>
               </div>
             </div>
             <nav className="text-sm text-slate-600 flex items-center gap-4">
@@ -42,18 +50,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
-
-
-
-export const metadata: Metadata = {
-  title: "PulseNote",
-  description: "Paste WhatsApp feedback, get a structured report.",
-};
-  
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  viewportFit: "cover",
-};
 }
