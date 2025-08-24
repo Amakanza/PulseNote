@@ -16,8 +16,8 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
   const [fileName, setFileName] = useState("Feedback_Report");
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("report:fileName");
-    if (saved) setFileName(saved);
+    const sessionFileName = sessionStorage.getItem("report:fileName");
+    if (sessionFileName) setFileName(sessionFileName);
   }, []);
 
   const editor = useEditor({
@@ -41,7 +41,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
     },
   });
 
-  const saveLocal = useCallback(() => {
+  const saveSession = useCallback(() => {
     const html = editor?.getHTML() || "";
     sessionStorage.setItem("report:html", html);
     sessionStorage.setItem("report:fileName", fileName);
@@ -147,8 +147,8 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
           
           <button 
             className="btn h-10 px-3" 
-            onClick={saveLocal}
-            aria-label="Save to session storage"
+            onClick={saveSession}
+            aria-label="Save to sessionStorage"
           >
             Save
           </button>
@@ -171,7 +171,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
               placeholder="Feedback_Report"
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              onBlur={saveLocal}
+              onBlur={saveSession}
             />
             <span className="small text-slate-500">.docx</span>
           </div>
