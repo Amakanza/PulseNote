@@ -1,5 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
-
 "use client";
 import { useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
@@ -22,7 +20,7 @@ export default function SignIn() {
       <p className="small">{msg}</p>
     <div className="text-center">
         <a href="/signup" className="text-sm text-emerald-600 hover:underline">
-          Don&apos;t have an account? Sign up
+          Already have an account? Sign in
         </a>
 </div>
     </div>
