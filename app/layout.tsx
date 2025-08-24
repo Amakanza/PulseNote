@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "PulseNote",
-  description: "Paste WhatsApp feedback, get a structured report.",
+  description: "Type your clinical notes, get a structured report.",
 };
   
 export const viewport: Viewport = {
