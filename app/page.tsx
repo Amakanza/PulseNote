@@ -130,11 +130,17 @@ export default function HomePage() {
             <div className="flex flex-col gap-3 py-4">
               <input ref={fileInputRef} type="file" accept=".txt,.log,.csv,.json" className="hidden" onChange={handleFileChange} />
               <button className="btn" onClick={handleUploadClick} title="Upload .txt">⬆️ Upload</button>
-              <button className="btn" onClick={handleAnalyze} disabled={!raw || loading} title="Parse + Draft">{loading ? "…" : "▶ Analyze"}</button>
+              
+              <div className="flex flex-wrap items-center gap-3">
+                <button disabled={!raw || loading} onClick={handleAnalyze} className="btn btn-primary h-10 px-4">
+                  {loading ? "Analyzing..." : "Analyze & Draft"}
+                </button>
+                {error && <span className="text-red-600 text-sm">{error}</span>}
+              </div>
+              
               <button className="btn" onClick={gotoEditor} disabled={!previewHtml} title="Open editor">✏️ Edit</button>
               <button className="btn" onClick={exportDocx} disabled={!previewHtml} title="Download docx">⬇️ DOCX</button>
               <button className="btn" onClick={handleClear} disabled={!raw && !previewHtml} title="Clear panes">🧹 Clear</button>
-              {error && <span className="text-red-600 text-xs text-center max-w-[12ch]">{error}</span>}
             </div>
           </div>
 
