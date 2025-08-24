@@ -1,6 +1,6 @@
-# PulseNote (Frontend + DOCX export)
+# PulseNote report generator
 
-- Paste WhatsApp text → parse → draft HTML → edit → **Download DOCX**.
+- Input text clincal notes → parse → draft HTML → edit → **Download DOCX**.
 
 ## Install & run
 ```bash
