@@ -33,11 +33,6 @@ export default function SignUp() {
         Sign up
       </button>
       <p className="small">{msg}</p>
-      <div className="text-center">
-        <a href="/signin" className="text-sm text-emerald-600 hover:underline">
-          Already have an account? Sign in
-        </a>
-      </div>
     </div>
   );
 }
