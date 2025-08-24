@@ -3,9 +3,15 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
+import { supabaseServer } from "@/lib/supabase/server";
 
 const inter = Inter({ subsets: ["latin"] });
 
+async function SignOutButton() {
+  "use server";
+  const supa = supabaseServer();
+  await supa.auth.signOut();
+  
 export const metadata: Metadata = {
   title: "PulseNote",
   description: "Type your clinical notes, get a structured report.",
