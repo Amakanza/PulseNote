@@ -8,7 +8,7 @@ const ReportEditor = dynamic(()=>import("../../components/ReportEditor"), { ssr:
 export default function ReportPage() {
   const [initialHtml, setInitialHtml] = useState<string>("");
   useEffect(()=>{
-    const saved = localStorage.getItem("report:html") || "<h1>Untitled report</h1>";
+    const saved = sessionStorage.getItem("report:html") || "<h1>Untitled report</h1>";
     setInitialHtml(saved);
   }, []);
   return (
