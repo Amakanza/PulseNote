@@ -53,11 +53,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main className="container-narrow py-8 space-y-8">{children}</main>
 
-        <footer className="border-t">
-          <div className="container-narrow py-8 text-center text-xs text-slate-500">
-            Built with Next.js + Tailwind + TipTap
-          </div>
-        </footer>
       </body>
     </html>
   );
