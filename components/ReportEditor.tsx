@@ -16,7 +16,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
   const [fileName, setFileName] = useState("Feedback_Report");
 
   useEffect(() => {
-    const saved = localStorage.getItem("report:fileName");
+    const saved = sessionStorage.getItem("report:fileName");
     if (saved) setFileName(saved);
   }, []);
 
@@ -43,8 +43,8 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
 
   const saveLocal = useCallback(() => {
     const html = editor?.getHTML() || "";
-    localStorage.setItem("report:html", html);
-    localStorage.setItem("report:fileName", fileName);
+    sessionStorage.setItem("report:html", html);
+    sessionStorage.setItem("report:fileName", fileName);
   }, [editor, fileName]);
 
   const exportHTML = useCallback(() => {
