@@ -95,7 +95,7 @@ export default function HomePage() {
       <section className="panel p-4 md:p-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">WhatsApp → Report</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Clinical notes → Report</h2>
             <p className="small mt-1 text-slate-600">Paste chat on the left, actions in the middle, live draft on the right.</p>
           </div>
           <div className="hidden md:flex items-center gap-2">
