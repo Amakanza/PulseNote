@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ImageUploadOCR from "../components/ImageUploadOCR"; // Add this import
 
 type Msg = { timestamp?: string; sender?: string; message: string };
 
@@ -86,6 +87,20 @@ export default function HomePage() {
     } catch (e: any) { alert(e.message || "Export failed"); }
   }
 
+  // Handle OCR text extraction
+  const handleTextExtracted = (extractedText: string) => {
+    if (extractedText.trim()) {
+      // Append to existing text or replace if empty
+      const newText = raw.trim() ? `${raw}\n\n${extractedText}` : extractedText;
+      setRaw(newText);
+      
+      // Auto-analyze after a short delay
+      setTimeout(() => {
+        handleAnalyze();
+      }, 100);
+    }
+  };
+
   const lines = raw ? raw.split(/\r?\n/).length : 0;
   const chars = raw.length;
 
@@ -96,13 +111,25 @@ export default function HomePage() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Clinical notes → Report</h2>
-            <p className="small mt-1 text-slate-600">Paste chat on the left, actions in the middle, live draft on the right.</p>
+            <p className="small mt-1 text-slate-600">Paste chat, upload images with text, or capture photos to extract text and generate reports.</p>
           </div>
           <div className="hidden md:flex items-center gap-2">
             <button className="btn" onClick={gotoEditor} title="Open the rich editor">Open Editor</button>
             <button className="btn btn-primary" onClick={exportDocx} title="Download as .docx">Download DOCX</button>
           </div>
         </div>
+      </section>
+
+      {/* Image Upload Section */}
+      <section className="panel p-4 md:p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">Upload or Capture Images</h3>
+          <p className="text-sm text-slate-600">Upload images containing text or capture photos to automatically extract text content.</p>
+        </div>
+        <ImageUploadOCR 
+          onTextExtracted={handleTextExtracted} 
+          disabled={loading}
+        />
       </section>
 
       {/* Workbench - Desktop 3-column layout */}
@@ -117,11 +144,11 @@ export default function HomePage() {
             <div className="p-4 h-full">
               <textarea
                 className="w-full h-[calc(70vh-80px)] p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder={`[12/08/24, 09:14] AJ: Great service!\n[12/08/24, 09:15] Lina: Delivery was late…`}
+                placeholder={`[12/08/24, 09:14] AJ: Great service!\n[12/08/24, 09:15] Lina: Delivery was late…\n\nOr upload/capture images with text above to automatically extract content here.`}
                 value={raw}
                 onChange={(e) => setRaw(e.target.value)}
               />
-              <p className="text-xs mt-2 text-slate-500">Tip: Paste an exported chat or any free-form feedback.</p>
+              <p className="text-xs mt-2 text-slate-500">Tip: Paste an exported chat, upload images with text, or type any feedback.</p>
             </div>
           </div>
 
@@ -142,9 +169,9 @@ export default function HomePage() {
               <button 
                 className="w-full btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300" 
                 onClick={handleUploadClick} 
-                title="Upload file"
+                title="Upload text file"
               >
-                📁 Upload
+                📁 Upload File
               </button>
               
               <button 
@@ -225,11 +252,11 @@ export default function HomePage() {
               </div>
               <textarea
                 className="w-full h-40 p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder={`[12/08/24, 09:14] AJ: Great service!\n[12/08/24, 09:15] Lina: Delivery was late…`}
+                placeholder={`[12/08/24, 09:14] AJ: Great service!\n[12/08/24, 09:15] Lina: Delivery was late…\n\nOr use image upload above to extract text.`}
                 value={raw}
                 onChange={(e) => setRaw(e.target.value)}
               />
-              <p className="text-xs mt-1 text-slate-500">Tip: Paste an exported chat or any free-form feedback.</p>
+              <p className="text-xs mt-1 text-slate-500">Tip: Paste exported chat, upload images, or type feedback.</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
