@@ -11,7 +11,8 @@ async function SignOutButton() {
   "use server";
   const supa = supabaseServer();
   await supa.auth.signOut();
-  
+}
+
 export const metadata: Metadata = {
   title: "PulseNote",
   description: "Type your clinical notes, get a structured report.",
