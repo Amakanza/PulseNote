@@ -12,7 +12,7 @@ export default function HomePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("report:input");
+    const saved = sessionStorage.getItem("report:input");
     if (saved) setRaw(saved);
   }, []);
 
@@ -35,8 +35,8 @@ export default function HomePage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Draft failed");
-    localStorage.setItem("report:html", data.html);
-    localStorage.setItem("report:analysis", JSON.stringify(data.analysisJSON ?? {}));
+    sessionStorage.setItem("report:html", data.html);
+    sessionStorage.setItem("report:analysis", JSON.stringify(data.analysisJSON ?? {}));
     setPreviewHtml(data.html);
   }
 
@@ -44,7 +44,7 @@ export default function HomePage() {
     if (!raw.trim()) return;
     setError(null); setLoading(true);
     try {
-      localStorage.setItem("report:input", raw);
+      sessionStorage.setItem("report:input", raw);
       const msgs = await parse(raw);
       await draft(msgs);
     } catch (e: any) { setError(e.message); }
@@ -53,7 +53,7 @@ export default function HomePage() {
 
   function handleClear() {
     setRaw(""); setPreviewHtml(""); setError(null);
-    localStorage.removeItem("report:input");
+    sessionStorage.removeItem("report:input");
   }
 
   function handleUploadClick() { fileInputRef.current?.click(); }
@@ -73,7 +73,7 @@ export default function HomePage() {
       const res = await fetch("/api/export/docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: localStorage.getItem("report:html"), filename: "Feedback_Report" }),
+        body: JSON.stringify({ html: sessionStorage.getItem("report:html"), filename: "Feedback_Report" }),
       });
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
