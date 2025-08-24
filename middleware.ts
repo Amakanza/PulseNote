@@ -12,8 +12,19 @@ export async function middleware(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (k) => req.cookies.get(k)?.value, set: (k,v,opts) => res.cookies.set(k,v,opts), remove: (k,opts) => res.cookies.set(k,"",opts) } }
+    {
+      cookies: {
+        get: (k) => req.cookies.get(k)?.value,
+        set: (k, v, opts) => {
+          res.cookies.set(k, v, opts);
+        },
+        remove: (k, opts) => {
+          res.cookies.set(k, "", opts);
+        }
+      }
+    }
   );
+  
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -22,9 +33,10 @@ export async function middleware(req: NextRequest) {
     url.searchParams.set("redirectedFrom", req.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+  
   return res;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin|public).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin|signup|public).*)"],
 };
