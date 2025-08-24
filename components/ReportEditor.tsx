@@ -41,7 +41,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
     },
   });
 
-  const saveLocal = useCallback(() => {
+  const savesession = useCallback(() => {
     const html = editor?.getHTML() || "";
     sessionStorage.setItem("report:html", html);
     sessionStorage.setItem("report:fileName", fileName);
