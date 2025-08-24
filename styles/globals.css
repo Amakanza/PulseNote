@@ -7,7 +7,7 @@
 
 /* Panels */
 .panel {
-  @apply rounded-2xl bg-white/90 backdrop-blur border border-slate-200 shadow-sm;
+  @apply rounded-2xl bg-white/90 backdrop-blur border border-slate-200 shadow-md;
 }
 
 /* Buttons */
