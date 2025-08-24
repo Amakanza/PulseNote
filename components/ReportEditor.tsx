@@ -148,7 +148,7 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
           <button 
             className="btn h-10 px-3" 
             onClick={saveLocal}
-            aria-label="Save to local storage"
+            aria-label="Save to session storage"
           >
             Save
           </button>
