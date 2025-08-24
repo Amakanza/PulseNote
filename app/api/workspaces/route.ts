@@ -1,6 +1,6 @@
 // app/api/workspaces/route.ts
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabase/serve";
 
 export async function POST(req: Request) {
   const supa = supabaseServer();
