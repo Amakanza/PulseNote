@@ -18,6 +18,11 @@ export default function SignIn() {
       <input className="input" placeholder="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
       <button className="btn btn-primary" onClick={handle}>Sign in</button>
       <p className="small">{msg}</p>
+    <div className="text-center">
+        <a href="/signup" className="text-sm text-emerald-600 hover:underline">
+          Don't have an account? Sign up
+        </a>
+</div>
     </div>
   );
 }
