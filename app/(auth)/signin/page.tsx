@@ -1,12 +1,15 @@
 "use client";
 import { useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSignIn() {
     if (!email || !password) {
@@ -25,13 +28,18 @@ export default function SignIn() {
         setMsg(error.message);
       } else {
         setMsg("Signed in successfully! Redirecting...");
+        
+        // Get the redirect URL from query params, or default to home
+        const redirectTo = searchParams.get("redirectedFrom") || "/";
+        
         // Small delay to show success message
         setTimeout(() => {
-          window.location.href = "/";
+          router.push(redirectTo);
         }, 1000);
       }
     } catch (err: any) {
       setMsg("An unexpected error occurred");
+      console.error("Sign in error:", err);
     } finally {
       setLoading(false);
     }
@@ -63,8 +71,9 @@ export default function SignIn() {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               disabled={loading}
+              autoComplete="email"
             />
           </div>
 
@@ -79,8 +88,9 @@ export default function SignIn() {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               disabled={loading}
+              autoComplete="current-password"
             />
           </div>
 
