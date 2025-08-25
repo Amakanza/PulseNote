@@ -9,17 +9,6 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "PulseNote",
   description: "Type your clinical notes, get a structured report.",
-  icons: {
-    icon: [
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
-    shortcut: '/favicon.ico',
-  },
-  manifest: '/site.webmanifest',
 };
   
 export const viewport: Viewport = {
@@ -38,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-emerald-50 via-white to-sky-50" />
           <div className="container-narrow py-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Image src="/publiclogo.png" alt="PulseNote logo" width={128} height={32} priority />
+              <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">P</span>
+              </div>
               <div className="leading-tight">
                 <div className="text-xs text-slate-500">Feedback Reporter</div>
                 <h1 className="text-lg font-semibold tracking-tight">PulseNote</h1>
@@ -53,6 +44,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main className="container-narrow py-8 space-y-8">{children}</main>
 
+        <footer className="border-t">
+          <div className="container-narrow py-8 text-center text-xs text-slate-500">
+            Built with Next.js + Tailwind + TipTap
+          </div>
+        </footer>
       </body>
     </html>
   );
