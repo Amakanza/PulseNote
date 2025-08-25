@@ -39,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="text-sm text-slate-600 flex items-center gap-4">
               <a href="/" className="hover:text-slate-900">New</a>
               <a href="/report" className="hover:text-slate-900">Editor</a>
+              <a href="/signin" className="hover:text-slate-900">Sign In</a>
+              <a href="/signup" className="hover:text-slate-900">Sign Up</a>
             </nav>
           </div>
         </header>
