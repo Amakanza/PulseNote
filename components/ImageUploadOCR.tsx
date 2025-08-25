@@ -234,3 +234,4 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
     </div>
   );
 }
+
