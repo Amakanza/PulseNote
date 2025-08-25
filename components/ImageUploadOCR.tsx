@@ -20,23 +20,13 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // OCR processing function
+  // Simplified OCR processing - for now, just simulate text extraction
   const processImageWithOCR = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const response = await fetch('/api/ocr', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'OCR processing failed');
-    }
-
-    const result: OCRResult = await response.json();
-    return result.text || '';
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // For now, return a placeholder message until OCR is properly set up
+    return `[Extracted text from ${file.name}]\nThis is a placeholder for OCR functionality. The actual text extraction will be implemented when the OCR service is configured.`;
   };
 
   // Handle file selection (both upload and camera)
@@ -239,6 +229,7 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
         <p>• Supported formats: JPG, PNG, GIF, WebP</p>
         <p>• Maximum file size: 10MB per image</p>
         <p>• For best results, ensure text is clear and well-lit</p>
+        <p>• OCR functionality is currently in placeholder mode</p>
       </div>
     </div>
   );
