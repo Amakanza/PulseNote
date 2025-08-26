@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import Image from "next/image";
+import UserMenu from "@/components/UserMenu";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,9 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <nav className="text-sm text-slate-600 flex items-center gap-4">
               <a href="/" className="hover:text-slate-900">New</a>
+              <a href="/workspaces" className="hover:text-slate-900">Workspaces</a>
               <a href="/report" className="hover:text-slate-900">Editor</a>
-              <a href="/signin" className="hover:text-slate-900">Sign In</a>
-              <a href="/signup" className="hover:text-slate-900">Sign Up</a>
             </nav>
           </div>
         </header>
