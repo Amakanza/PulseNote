@@ -89,40 +89,34 @@ export default function WorkspaceProjects({ params }: WorkspaceProjectsProps) {
         return;
       }
 
-// 1. Get projects first
-const { data: projectsData, error: projectsError } = await supa
-  .from('projects')
-  .select('id, workspace_id, title, created_by, created_at')
-  .eq('workspace_id', workspaceId)
-  .order('created_at', { ascending: false });
-
-if (projectsError) throw projectsError;
-
-// 2. Get creator profiles separately if projects exist
-let projectsWithCreators = projectsData || [];
-if (projectsData && projectsData.length > 0) {
-  const creatorIds = [...new Set(projectsData.map(p => p.created_by))];
-  const { data: profiles } = await supa
-    .from('profiles')
-    .select('id, full_name')
-    .in('id', creatorIds);
-
-  // 3. Merge the data
-  projectsWithCreators = projectsData.map(project => ({
-    ...project,
-    creator_profile: profiles?.find(p => p.id === project.created_by)
-  }));
-}
-
-setProjects(projectsWithCreators);
+      // 1. Get projects first
+      const { data: projectsData, error: projectsError } = await supa
+        .from('projects')
+        .select('id, workspace_id, title, created_by, created_at')
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false });
 
       if (projectsError) throw projectsError;
 
+      // 2. Get creator profiles separately if projects exist
+      let projectsWithCreators = projectsData || [];
+      if (projectsData && projectsData.length > 0) {
+        const creatorIds = [...new Set(projectsData.map(p => p.created_by))];
+        const { data: profiles } = await supa
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', creatorIds);
+
+        // 3. Merge the data
+        projectsWithCreators = projectsData.map(project => ({
+          ...project,
+          creator_profile: profiles?.find(p => p.id === project.created_by)
+        }));
+      }
+
       setWorkspace(workspaceData);
       setCurrentUserRole(membershipData.role);
-      setProjects(projectsData || []);
+      setProjects(projectsWithCreators);
     } catch (err: any) {
       setError(err.message);
     } finally {
