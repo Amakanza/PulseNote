@@ -80,6 +80,7 @@ const SCHEMA_EXAMPLE = `{
 const SYSTEM = `
 You turn WhatsApp feedback into a professional report WITHOUT over-summarizing.
 Rules:
+- MUST CAPTURE CLINICAL ITEMS: any diagnoses/diagnosis/Dx/impression/assessment AND any procedures/ops/surgeries/injections/tests that were DONE. If mentioned anywhere, include once in the output.
 - Preserve concrete details: numbers, dates, names, item IDs, locations, timings, and pricing.
 - Keep representative quotes verbatim (max ~180 chars each).
 - Build an issues_table with details tied to quotes.
