@@ -416,11 +416,12 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
               </div>
 
               <div className="flex items-center gap-3">
+
                 {canManageMembers() && member.role !== 'owner' ? (
                   <select
                     value={member.role}
                     onChange={(e) => handleRoleChange(member.user_id, e.target.value as UserRole)}
-                    disabled={updatingMember === member.user_id || !canChangeRole(e.target.value as UserRole, member.role)}
+                    disabled={updatingMember === member.user_id}
                     className="input text-sm"
                   >
                     <option value="viewer">Viewer</option>
@@ -433,7 +434,7 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
                     {member.role}
                   </span>
                 )}
-
+                
                 {canManageMembers() && member.role !== 'owner' && (
                   <button
                     onClick={() => handleRemoveMember(member.user_id)}
