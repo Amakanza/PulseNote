@@ -81,29 +81,42 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
 
       if (workspaceError) throw workspaceError;
 
-      // Load members with profiles
+      // Load members first, then get profiles separately
       const { data: membersData, error: membersError } = await supa
         .from('workspace_memberships')
-        .select(`
-          user_id,
-          role,
-          added_at,
-          profile:profiles(full_name)
-        `)
+        .select('user_id, role, added_at')
         .eq('workspace_id', workspaceId)
         .order('added_at');
 
       if (membersError) throw membersError;
 
+      // Get profiles for all members
+      let membersWithProfiles: WorkspaceMember[] = membersData || [];
+      if (membersData && membersData.length > 0) {
+        const userIds = membersData.map(m => m.user_id);
+        const { data: profiles } = await supa
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+
+        // Merge the data
+        membersWithProfiles = membersData.map(member => ({
+          ...member,
+          profile: profiles?.find(p => p.id === member.user_id) 
+            ? { full_name: profiles.find(p => p.id === member.user_id)!.full_name }
+            : undefined
+        }));
+      }
+
       // Get current user's role
-      const currentMember = membersData?.find(m => m.user_id === user.id);
+      const currentMember = membersWithProfiles.find(m => m.user_id === user.id);
       if (!currentMember) {
         router.push('/workspaces');
         return;
       }
 
       setWorkspace(workspaceData);
-      setMembers(membersData || []);
+      setMembers(membersWithProfiles);
       setCurrentUserRole(currentMember.role);
     } catch (err: any) {
       setError(err.message);
@@ -137,7 +150,7 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          email: inviteEmail.trim(),
+          user_id: inviteEmail.trim(), // For now, using email as user_id
           role: inviteRole 
         })
       });
@@ -354,8 +367,8 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
                 <Mail className="w-4 h-4" />
               </div>
               <input
-                type="email"
-                placeholder="Email address"
+                type="text"
+                placeholder="User ID"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 className="input flex-1"
