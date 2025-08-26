@@ -5,6 +5,21 @@ import { supabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Plus, Settings, Users, FileText, Crown, Shield, Edit3, Eye } from "lucide-react";
 
+type WorkspaceRow = {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by: string;
+};
+
+type MembershipRow = {
+  workspace_id: string;
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
+  added_at: string;
+  // Supabase may return the relation as an array; handle both.
+  workspace: WorkspaceRow | WorkspaceRow[] | null;
+};
+
 type WorkspaceMembership = {
   workspace_id: string;
   role: 'owner' | 'admin' | 'editor' | 'viewer';
@@ -32,33 +47,55 @@ export default function WorkspacesPage() {
 
   useEffect(() => {
     loadWorkspaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadWorkspaces = async () => {
     try {
       const supa = supabaseClient();
       const { data: { user } } = await supa.auth.getUser();
-      
+
       if (!user) {
         router.push('/signin?redirectedFrom=/workspaces');
         return;
       }
 
-      // Get user's workspace memberships with workspace details
+      // Keep this select simple; we'll normalize the relation shape below.
       const { data, error } = await supa
         .from('workspace_memberships')
         .select(`
           workspace_id,
           role,
           added_at,
-          workspace:workspaces(id, name, created_at, created_by)
+          workspace:workspaces (
+            id, name, created_at, created_by
+          )
         `)
         .eq('user_id', user.id)
-        .order('added_at', { ascending: false });
+        .order('added_at', { ascending: false })
+        .returns<MembershipRow[]>();
 
       if (error) throw error;
 
-      setMemberships(data || []);
+      const normalized: WorkspaceMembership[] = (data ?? [])
+        .map((row) => {
+          const ws = Array.isArray(row.workspace) ? row.workspace[0] : row.workspace;
+          if (!ws) return null;
+          return {
+            workspace_id: row.workspace_id,
+            role: row.role,
+            added_at: row.added_at,
+            workspace: {
+              id: ws.id,
+              name: ws.name,
+              created_at: ws.created_at,
+              created_by: ws.created_by,
+            },
+          };
+        })
+        .filter((x): x is WorkspaceMembership => Boolean(x));
+
+      setMemberships(normalized);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -68,7 +105,7 @@ export default function WorkspacesPage() {
 
   const handleCreateWorkspace = async () => {
     if (!createForm.name.trim()) return;
-    
+
     setCreating(true);
     try {
       const response = await fetch('/api/workspaces', {
@@ -80,7 +117,6 @@ export default function WorkspacesPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
 
-      // Reload workspaces and close form
       await loadWorkspaces();
       setShowCreateForm(false);
       setCreateForm({ name: "" });
@@ -149,8 +185,8 @@ export default function WorkspacesPage() {
       {error && (
         <div className="panel p-4 bg-red-50 border-red-200">
           <p className="text-red-700 text-sm">{error}</p>
-          <button 
-            onClick={() => setError(null)} 
+          <button
+            onClick={() => setError(null)}
             className="text-red-600 hover:text-red-800 text-xs underline mt-1"
           >
             Dismiss
@@ -174,7 +210,7 @@ export default function WorkspacesPage() {
                 ×
               </button>
             </div>
-            
+
             <div className="flex gap-3">
               <input
                 type="text"
@@ -276,14 +312,14 @@ export default function WorkspacesPage() {
       <section className="panel p-6 bg-gradient-to-r from-emerald-50 to-sky-50">
         <div className="text-center">
           <h3 className="font-medium text-slate-900 mb-2">Need help getting started?</h3>
-          <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-slate-600 mb-4">
             Workspaces help you organize your team's reports and collaborate more effectively
           </p>
           <div className="flex justify-center gap-3">
             <button className="btn btn-sm">
               View Guide
             </button>
-            <button 
+            <button
               onClick={() => setShowCreateForm(true)}
               className="btn btn-primary btn-sm"
             >
