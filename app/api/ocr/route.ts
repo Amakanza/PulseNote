@@ -1,4 +1,4 @@
-// app/api/ocr/route.ts - DEBUG VERSION
+// app/api/ocr/route.ts - FIXED VERSION
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -11,120 +11,148 @@ interface OCRResponse {
 // Process image with Google Vision API
 async function processImageWithGoogleVision(imageBuffer: Buffer): Promise<OCRResponse> {
   try {
-    // Debug: Check if environment variable exists
     const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-    console.log("Credentials JSON exists:", !!credentialsJson);
-    console.log("Credentials JSON length:", credentialsJson?.length || 0);
     
     if (!credentialsJson) {
       throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not found");
     }
 
-    // Debug: Try to parse the JSON
     let credentials;
     try {
       credentials = JSON.parse(credentialsJson);
-      console.log("Credentials parsed successfully");
-      console.log("Project ID:", credentials.project_id);
-      console.log("Client email:", credentials.client_email);
     } catch (parseError) {
-      console.error("Failed to parse credentials JSON:", parseError);
       throw new Error("Invalid credentials JSON format");
     }
 
-    // Dynamic import to avoid build-time errors
-    console.log("Attempting to import Google Vision client...");
     const { ImageAnnotatorClient } = await import("@google-cloud/vision");
-    console.log("Google Vision client imported successfully");
     
     const client = new ImageAnnotatorClient({
       credentials,
       projectId: credentials.project_id
     });
-    
-    console.log("Client created, attempting text detection...");
 
-    // Perform text detection
-    const [result] = await client.textDetection({
+    // Perform text detection with timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OCR processing timed out after 30 seconds')), 30000)
+    );
+
+    const ocrPromise = client.textDetection({
       image: { content: imageBuffer },
     });
 
-    console.log("Text detection completed");
-    console.log("Number of text annotations:", result.textAnnotations?.length || 0);
+    const [result] = await Promise.race([ocrPromise, timeoutPromise]) as any;
 
     const detections = result.textAnnotations;
     const text = detections && detections.length > 0 ? detections[0].description || "" : "";
     const confidence = detections && detections.length > 0 ? detections[0].score || 0.8 : 0;
 
-    console.log(`OCR extracted ${text.length} characters with confidence ${Math.round(confidence * 100)}%`);
-
-    return {
-      text,
-      confidence,
-    };
+    return { text, confidence };
   } catch (error) {
     console.error("Google Vision API error:", error);
-    console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
     throw error;
   }
 }
 
 export async function POST(req: Request) {
   try {
-    console.log("OCR endpoint called");
-    
+    // Check content length before processing
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 15 * 1024 * 1024) {
+      return NextResponse.json(
+        { 
+          text: "[File too large for processing]",
+          error: "File exceeds maximum size limit",
+          confidence: 0
+        }, 
+        { status: 413 }
+      );
+    }
+
     const formData = await req.formData();
     const image = formData.get('image') as File;
 
     if (!image) {
-      return NextResponse.json({ error: "No image provided" }, { status: 400 });
+      return NextResponse.json(
+        { 
+          text: "[No image provided]",
+          error: "No image file found in request",
+          confidence: 0
+        }, 
+        { status: 400 }
+      );
     }
-
-    console.log(`Processing image: ${image.name} (${image.type}, ${Math.round(image.size / 1024)}KB)`);
 
     // Validate file type
     if (!image.type.startsWith('image/')) {
-      return NextResponse.json({ error: "File must be an image" }, { status: 400 });
+      return NextResponse.json(
+        { 
+          text: "[Invalid file type]",
+          error: "File must be an image (JPG, PNG, GIF, WebP)",
+          confidence: 0
+        }, 
+        { status: 400 }
+      );
     }
 
     // Validate file size (max 10MB)
     if (image.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "File size must be under 10MB" }, { status: 400 });
+      return NextResponse.json(
+        { 
+          text: "[File too large]",
+          error: `File size (${Math.round(image.size / 1024 / 1024)}MB) exceeds 10MB limit`,
+          confidence: 0
+        }, 
+        { status: 413 }
+      );
     }
 
     // Convert file to buffer
     const arrayBuffer = await image.arrayBuffer();
     const imageBuffer = Buffer.from(arrayBuffer);
-    console.log("Image converted to buffer successfully");
 
     // Process with Google Vision API
     try {
       const result = await processImageWithGoogleVision(imageBuffer);
-      console.log("OCR processing successful");
-      return NextResponse.json(result);
-    } catch (error) {
-      console.error("OCR processing failed:", error);
       
-      // Return detailed error for debugging
+      // Always return valid JSON
       return NextResponse.json({
-        text: `[OCR processing failed - from ${image.name}]\n\nDetailed Error: ${error instanceof Error ? error.message : 'Unknown error'}\n\nStack: ${error instanceof Error ? error.stack : 'No stack trace'}\n\nPlease check the server logs for more details.`,
-        confidence: 0,
-        debug: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          hasCredentials: !!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
-          credentialsLength: process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON?.length || 0
-        }
+        text: result.text || "[No text detected in image]",
+        confidence: result.confidence || 0
       });
+
+    } catch (visionError) {
+      console.error("Vision API processing failed:", visionError);
+      
+      // Return user-friendly error message as valid JSON
+      const errorMessage = visionError instanceof Error ? visionError.message : 'Unknown error';
+      
+      return NextResponse.json({
+        text: `[OCR processing failed for ${image.name}]`,
+        error: `Vision API error: ${errorMessage}`,
+        confidence: 0
+      }, { status: 500 });
     }
 
-  } catch (error) {
-    console.error("OCR endpoint error:", error);
-    return NextResponse.json(
-      { 
-        error: "Failed to process request",
-        debug: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+  } catch (requestError) {
+    console.error("OCR request error:", requestError);
+    
+    // Handle different types of request errors
+    if (requestError instanceof Error) {
+      if (requestError.message.includes('PayloadTooLargeError') || 
+          requestError.message.includes('Request Entity Too Large')) {
+        return NextResponse.json({
+          text: "[Request too large]",
+          error: "Request size exceeds server limits. Try a smaller image.",
+          confidence: 0
+        }, { status: 413 });
+      }
+    }
+    
+    // Generic error fallback - always return valid JSON
+    return NextResponse.json({
+      text: "[Request processing failed]",
+      error: "Failed to process OCR request",
+      confidence: 0
+    }, { status: 500 });
   }
 }
