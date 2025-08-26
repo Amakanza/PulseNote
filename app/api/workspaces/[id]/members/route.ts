@@ -1,3 +1,7 @@
+// app/api/workspaces/[id]/members/route.ts
+import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/serve";
+
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const supa = supabaseServer();
   const { data: { user } } = await supa.auth.getUser();
@@ -7,13 +11,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   try {
-    const { user_id, role = 'viewer' } = await req.json(); // Accept user_id directly
+    const { user_id, role = 'viewer' } = await req.json();
     
     if (!user_id || !user_id.trim()) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    // Check permissions
+    if (!['owner', 'admin', 'editor', 'viewer'].includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    // Check if current user has permission to add members
     const { data: currentUserMembership } = await supa
       .from("workspace_memberships")
       .select("role")
@@ -21,11 +29,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       .eq("user_id", user.id)
       .single();
 
-    if (!currentUserMembership || !['owner', 'admin'].includes(currentUserMembership.role)) {
+    if (!currentUserMembership) {
+      return NextResponse.json({ error: "Not a member of this workspace" }, { status: 403 });
+    }
+
+    if (!['owner', 'admin'].includes(currentUserMembership.role)) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 
-    // Check if user exists
+    // Admins cannot invite owners
+    if (currentUserMembership.role === 'admin' && role === 'owner') {
+      return NextResponse.json({ error: "Cannot invite owners" }, { status: 403 });
+    }
+
+    // Check if target user exists
     const { data: targetUser } = await supa
       .from("profiles")
       .select("id")
@@ -36,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if already a member
+    // Check if user is already a member
     const { data: existingMembership } = await supa
       .from("workspace_memberships")
       .select("*")
@@ -48,7 +65,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "User is already a member" }, { status: 409 });
     }
 
-    // Add member
+    // Add the user to the workspace
     const { error } = await supa
       .from("workspace_memberships")
       .insert({ 
