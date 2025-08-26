@@ -1,4 +1,4 @@
-// app/api/ocr/route.ts
+// app/api/ocr/route.ts - FIXED VERSION
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -11,25 +11,51 @@ interface OCRResponse {
 // Process image with Google Vision API
 async function processImageWithGoogleVision(imageBuffer: Buffer): Promise<OCRResponse> {
   try {
-    // Dynamic import to avoid build-time errors if dependency is missing
+    // Get credentials from environment variable
+    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    
+    if (!credentialsJson) {
+      throw new Error("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not found");
+    }
+
+    // Parse the credentials JSON
+    let credentials;
+    try {
+      credentials = JSON.parse(credentialsJson);
+    } catch (parseError) {
+      throw new Error(`Failed to parse credentials JSON: ${parseError}`);
+    }
+
+    // Validate required fields
+    if (!credentials.type || !credentials.project_id || !credentials.private_key || !credentials.client_email) {
+      throw new Error("Missing required fields in credentials JSON");
+    }
+
+    console.log(`Using project: ${credentials.project_id}`);
+    console.log(`Using client email: ${credentials.client_email}`);
+
+    // Dynamic import
     const { ImageAnnotatorClient } = await import("@google-cloud/vision");
     
-    let client;
-    
-    // Try to get credentials from environment variable
-    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-    if (credentialsJson) {
-      console.log("Using GOOGLE_APPLICATION_CREDENTIALS_JSON");
-      const credentials = JSON.parse(credentialsJson);
-      client = new ImageAnnotatorClient({
-        credentials,
-        projectId: credentials.project_id
-      });
-    } else {
-      console.log("No credentials found, using default authentication");
-      // Fallback to default authentication
-      client = new ImageAnnotatorClient();
-    }
+    // Create client with explicit credentials
+    const client = new ImageAnnotatorClient({
+      credentials: {
+        type: credentials.type,
+        project_id: credentials.project_id,
+        private_key_id: credentials.private_key_id,
+        private_key: credentials.private_key,
+        client_email: credentials.client_email,
+        client_id: credentials.client_id,
+        auth_uri: credentials.auth_uri,
+        token_uri: credentials.token_uri,
+        auth_provider_x509_cert_url: credentials.auth_provider_x509_cert_url,
+        client_x509_cert_url: credentials.client_x509_cert_url,
+        universe_domain: credentials.universe_domain || "googleapis.com"
+      },
+      projectId: credentials.project_id
+    });
+
+    console.log("Vision client created successfully");
 
     // Perform text detection
     const [result] = await client.textDetection({
@@ -40,7 +66,7 @@ async function processImageWithGoogleVision(imageBuffer: Buffer): Promise<OCRRes
     const text = detections && detections.length > 0 ? detections[0].description || "" : "";
     const confidence = detections && detections.length > 0 ? detections[0].score || 0.8 : 0;
 
-    console.log(`OCR extracted ${text.length} characters with confidence ${Math.round(confidence * 100)}%`);
+    console.log(`OCR successful: extracted ${text.length} characters`);
 
     return {
       text,
@@ -48,7 +74,7 @@ async function processImageWithGoogleVision(imageBuffer: Buffer): Promise<OCRRes
     };
   } catch (error) {
     console.error("Google Vision API error:", error);
-    throw new Error(`OCR processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
 }
 
@@ -77,16 +103,14 @@ export async function POST(req: Request) {
     const arrayBuffer = await image.arrayBuffer();
     const imageBuffer = Buffer.from(arrayBuffer);
 
-    // Process with Google Vision API
     try {
       const result = await processImageWithGoogleVision(imageBuffer);
       return NextResponse.json(result);
     } catch (error) {
       console.error("OCR processing failed:", error);
       
-      // Return fallback placeholder instead of failing completely
       return NextResponse.json({
-        text: `[OCR processing failed - from ${image.name}]\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease ensure Google Cloud Vision API is properly configured with valid credentials.`,
+        text: `[OCR processing failed - from ${image.name}]\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check server logs for details.`,
         confidence: 0
       });
     }
