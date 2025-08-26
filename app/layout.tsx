@@ -2,7 +2,6 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import Image from "next/image";
 import UserMenu from "@/components/UserMenu";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -18,7 +17,6 @@ export const viewport: Viewport = {
   maximumScale: 1,
   viewportFit: "cover",
 };
-
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,9 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
             <nav className="text-sm text-slate-600 flex items-center gap-4">
-              <a href="/" className="hover:text-slate-900">New</a>
+              <a href="/" className="hover:text-slate-900">New Report</a>
               <a href="/workspaces" className="hover:text-slate-900">Workspaces</a>
               <a href="/report" className="hover:text-slate-900">Editor</a>
+              <UserMenu />
             </nav>
           </div>
         </header>
