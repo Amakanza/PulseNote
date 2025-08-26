@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Camera, Upload, X, FileImage, Loader2, AlertCircle, Trash2 } from "lucide-react";
 
 interface ImageUploadProps {
@@ -212,7 +212,7 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
   };
 
   // Clean up on unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       images.forEach(cleanupImage);
     };
