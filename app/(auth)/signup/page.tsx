@@ -32,38 +32,50 @@ export default function SignUp() {
 
   // Check if username exists in organization and generate unique one
   const generateUniqueUsername = async (baseUsername: string, organization: string): Promise<string> => {
-    const supa = supabaseClient();
-    let username = baseUsername;
-    let counter = 1;
+    try {
+      const supa = supabaseClient();
+      let username = baseUsername;
+      let counter = 1;
 
-    while (true) {
-      // Check if username exists in this organization
-      const { data, error } = await supa
-        .from("profiles")
-        .select("username")
-        .eq("username", username)
-        .eq("organization", organization || null)
-        .single();
+      while (counter <= 999) {
+        // Check if username exists in this organization in user_organizations table
+        const { data, error } = await supa
+          .from("user_organizations")
+          .select(`
+            user_id,
+            auth_users:user_id (
+              raw_user_meta_data
+            )
+          `)
+          .eq("organization_id", organization || null)
+          .limit(100); // Get all users in this org
 
-      if (error && error.code === 'PGRST116') {
-        // No matching record found, username is available
-        return username;
+        if (error) {
+          console.error("Error checking usernames:", error);
+          // If there's an error, just use the base username
+          return baseUsername;
+        }
+
+        // Check if this username is taken by examining user metadata
+        const usernameTaken = data?.some(membership => {
+          const userData = membership.auth_users as any;
+          return userData?.raw_user_meta_data?.username === username;
+        });
+
+        if (!usernameTaken) {
+          return username;
+        }
+
+        // Username exists, try with number
+        username = baseUsername + counter;
+        counter++;
       }
 
-      if (error) {
-        console.error("Error checking username:", error);
-        // If there's an error, just use the base username
-        return baseUsername;
-      }
-
-      // Username exists, try with number
-      username = baseUsername + counter;
-      counter++;
-
-      // Safety limit to prevent infinite loop
-      if (counter > 999) {
-        return baseUsername + Math.floor(Math.random() * 10000);
-      }
+      // Safety fallback
+      return baseUsername + Math.floor(Math.random() * 10000);
+    } catch (error) {
+      console.error("Username generation error:", error);
+      return baseUsername;
     }
   };
 
@@ -72,7 +84,7 @@ export default function SignUp() {
     if (!form.lastName.trim()) return "Last name is required";
     if (!form.email.trim()) return "Email address is required";
     if (!form.password) return "Password is required";
-    if (form.password.length < 8) return "Password must be at least 8 characters";
+    if (form.password.length < 6) return "Password must be at least 6 characters";
     
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,9 +111,29 @@ export default function SignUp() {
     try {
       const supa = supabaseClient();
       
+      // Find or create organization if specified
+      let organizationId = null;
+      if (form.organization.trim()) {
+        // Check if organization exists
+        const { data: existingOrg, error: orgError } = await supa
+          .from("organizations")
+          .select("id")
+          .eq("name", form.organization.trim())
+          .single();
+
+        if (existingOrg) {
+          organizationId = existingOrg.id;
+        } else if (orgError?.code === 'PGRST116') {
+          // Organization doesn't exist, we'll let the trigger create a personal one
+          organizationId = null;
+        } else if (orgError) {
+          console.error("Organization check error:", orgError);
+        }
+      }
+
       // Generate unique username
       const baseUsername = generateUsername(form.firstName, form.lastName);
-      const uniqueUsername = await generateUniqueUsername(baseUsername, form.organization);
+      const uniqueUsername = await generateUniqueUsername(baseUsername, organizationId);
 
       // Sign up with Supabase Auth
       const { data, error } = await supa.auth.signUp({
@@ -114,31 +146,56 @@ export default function SignUp() {
             full_name: `${form.firstName.trim()} ${form.lastName.trim()}`,
             username: uniqueUsername,
             organization: form.organization.trim() || null,
+            organization_id: organizationId,
           },
         },
       });
 
       if (error) {
+        console.error("Signup error:", error);
+        
         if (error.message.includes("already registered")) {
           setMsg("This email address is already registered. Try signing in instead.");
+        } else if (error.message.includes("rate limit")) {
+          setMsg("Too many signup attempts. Please wait a few minutes and try again.");
+        } else if (error.message.includes("timeout") || error.message.includes("504")) {
+          setMsg("Server is currently busy. Please try again in a moment.");
         } else {
-          setMsg(error.message);
+          setMsg(`Signup failed: ${error.message}`);
         }
         return;
       }
 
-      if (data.user && !data.user.email_confirmed_at) {
-        setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account before signing in.`);
-      } else {
-        setMsg("Account created successfully! Redirecting...");
-        setTimeout(() => {
-          router.push("/");
-        }, 2000);
+      if (data.user) {
+        // If user specified an existing organization, add them to it as editor
+        if (organizationId && form.organization.trim()) {
+          try {
+            await supa
+              .from("user_organizations")
+              .insert({
+                user_id: data.user.id,
+                organization_id: organizationId,
+                role: 'editor', // Default role for joining existing org
+              });
+          } catch (orgError) {
+            console.error("Error joining organization:", orgError);
+            // Don't fail the signup for this
+          }
+        }
+
+        if (!data.user.email_confirmed_at) {
+          setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account. Your username is: ${uniqueUsername}`);
+        } else {
+          setMsg(`Account created successfully! Your username is: ${uniqueUsername}. Redirecting...`);
+          setTimeout(() => {
+            router.push("/signin");
+          }, 3000);
+        }
       }
 
     } catch (err: any) {
-      setMsg("An unexpected error occurred. Please try again.");
-      console.error("Sign up error:", err);
+      console.error("Unexpected signup error:", err);
+      setMsg("An unexpected error occurred. Please try again or contact support.");
     } finally {
       setLoading(false);
     }
@@ -162,10 +219,10 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50">
-      <div className="panel p-8 max-w-md w-full mx-4 space-y-">
+      <div className="panel p-8 max-w-md w-full mx-4 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900">Join PulseNote</h1>
-          <p className="text-slate-00 mt-2">Create your account to get started</p>
+          <p className="text-slate-600 mt-2">Create your account to get started</p>
         </div>
 
         <div className="space-y-4">
@@ -211,10 +268,10 @@ export default function SignUp() {
               <p className="text-sm text-emerald-700">
                 <strong>Your username will be:</strong> {previewUsername}
                 {form.organization && (
-                  <span className="text-emerald-00"> (in {form.organization})</span>
+                  <span className="text-emerald-600"> (in {form.organization})</span>
                 )}
               </p>
-              <p className="text-xs text-emerald-00 mt-1">
+              <p className="text-xs text-emerald-600 mt-1">
                 If this username is taken, a number will be added automatically
               </p>
             </div>
@@ -247,7 +304,7 @@ export default function SignUp() {
               id="password"
               type="password"
               className="input w-full"
-              placeholder="Create a password (min. 8 characters)"
+              placeholder="Create a password (min. 6 characters)"
               value={form.password}
               onChange={(e) => updateForm("password", e.target.value)}
               onKeyDown={handleKeyPress}
@@ -273,7 +330,7 @@ export default function SignUp() {
               autoComplete="organization"
             />
             <p className="text-xs text-slate-500 mt-1">
-              This helps organize users and prevent username conflicts
+              Join an existing organization or leave blank to create your own workspace
             </p>
           </div>
 
@@ -300,11 +357,11 @@ export default function SignUp() {
 
         {/* Sign In Link */}
         <div className="text-center">
-          <p className="text-sm text-slate-00">
+          <p className="text-sm text-slate-600">
             Already have an account?{" "}
             <a 
               href="/signin" 
-              className="text-emerald-00 hover:text-emerald-700 hover:underline font-medium"
+              className="text-emerald-600 hover:text-emerald-700 hover:underline font-medium"
             >
               Sign in here
             </a>
@@ -314,7 +371,7 @@ export default function SignUp() {
         {/* Help Text */}
         <div className="text-center">
           <p className="text-xs text-slate-500">
-            By creating an account, you agree to our Terms of Service and Privacy Policy
+            Need help? Contact support for assistance
           </p>
         </div>
       </div>
