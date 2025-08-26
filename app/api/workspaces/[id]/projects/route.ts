@@ -1,4 +1,4 @@
-// app/api/workspaces/[id]/projects/route.ts - Complete the POST function
+// Add this POST function to the existing GET function:
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const supa = supabaseServer();
   const { data: { user } } = await supa.auth.getUser();
