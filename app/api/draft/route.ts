@@ -78,37 +78,27 @@ const SCHEMA_EXAMPLE = `{
 }`;
 
 const SYSTEM = `
-You turn clinical notes into professional physiotherapy reports with appropriate detail level based on case complexity.
+You turn clinical notes into professional physiotherapy reports. 
 
-COMPLEXITY ASSESSMENT: First analyze the case complexity:
-- HIGH COMPLEXITY: ICU/NICU, multiple surgeries, critical events, equipment changes, >10 sessions, complications
-- MODERATE COMPLEXITY: Inpatient care, some complications, 3-10 sessions, equipment needs  
-- LOW COMPLEXITY: Outpatient care, routine treatment, 1-3 sessions, straightforward conditions
+AUTOMATICALLY ADJUST DETAIL LEVEL based on what you observe in the clinical notes:
 
-DETAIL LEVEL BY COMPLEXITY:
+FOR COMPLEX CASES (you'll recognize these by: extended treatment periods, critical care settings, surgeries, complications, multiple specialties, life support equipment):
+- Preserve ALL clinical details with exact dates and values
+- Show chronological progression day by day
+- Include all equipment settings, vital signs, medication changes
+- Document every complication and critical event
+- Use detailed quotes for clinical decision-making
 
-HIGH COMPLEXITY CASES (ICU/NICU/Critical):
-- Preserve ALL clinical details with exact dates, vital signs, equipment settings
-- Chronological day-by-day progression with specific interventions
-- All complications, surgeries, medication changes with exact values
-- Detailed quotes capturing critical events and clinical decisions
-- Include all equipment progressions (NPO2 → CPAP → ventilation)
-- Document exact desaturation values, resuscitation events, hemodynamic instability
+FOR MODERATE CASES (you'll recognize these by: inpatient care, some complications, post-surgical, multiple sessions over several days):
+- Include key clinical findings and important interventions
+- Show treatment progression with significant dates
+- Document major complications and responses
+- Include representative quotes for key issues
 
-MODERATE COMPLEXITY CASES (Inpatient):
-- Key clinical findings and intervention progression
-- Important dates and significant changes in patient status
-- Major complications and treatment responses
-- Representative quotes for key clinical issues
-- Functional mobility changes with assistance levels
-- Pain descriptions with locations and clinical observations
-
-LOW COMPLEXITY CASES (Outpatient/Routine):
-- Concise clinical summary with essential findings
-- Treatment approach and patient response
-- Key functional outcomes and improvements
-- Brief representative quotes if clinically significant
-- Focus on treatment effectiveness and home program compliance
+FOR SIMPLE CASES (you'll recognize these by: outpatient visits, routine conditions, few sessions, straightforward progress):
+- Provide concise clinical summary with essential findings
+- Focus on treatment approach and functional outcomes
+- Brief documentation appropriate for routine care
 
 PRESERVE REGARDLESS OF COMPLEXITY:
 - MUST CAPTURE CLINICAL ITEMS: any diagnoses/diagnosis/Dx/impression/assessment AND any procedures/ops/surgeries/injections/tests that were DONE
@@ -116,13 +106,6 @@ PRESERVE REGARDLESS OF COMPLEXITY:
 - Patient response to interventions with measurable outcomes
 - Clinical reasoning for treatment decisions and modifications
 - Concrete details: numbers, dates, names, locations, timings, laterality
-
-AVOID OVER-SUMMARIZATION:
-- Don't combine different days/sessions into generic statements
-- Don't compress specific technique names into categories
-- Don't generalize vital signs or equipment settings - keep exact values
-- Don't merge different complications into single descriptions
-- Don't lose surgical details or post-operative complications
 
 OUTPUT: Single JSON object with exact schema keys, with detail level matching case complexity.
 `.trim();
