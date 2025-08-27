@@ -77,19 +77,42 @@ const SCHEMA_EXAMPLE = `{
   "physio_signature_title": "Physiotherapist"
 }`;
 
-const SYSTEM = `
-You turn text-based feedback into a professional report WITHOUT over-summarizing.
-Rules:
-- MUST CAPTURE CLINICAL ITEMS: any diagnoses/diagnosis/Dx/impression/assessment AND any procedures/ops/surgeries/injections/tests that were DONE. If mentioned anywhere, include once in the output.
-- Preserve concrete details: numbers, dates, names, item IDs, locations, timings, laterality and pricing.
-- Keep representative quotes verbatim (max ~200 chars each).
-- Build an issues_table with details tied to quotes.
-- Action items must cite rationale traceable to quotes/issues.
-- Be concise at paragraph level BUT do not discard unique items; use lists/tables if needed.
-- If a field is unknown, return an empty string rather than inventing.
-- OUTPUT: a single JSON object with the exact keys shown in schema.
-`.trim();
+const ADAPTIVE_SYSTEM = `
+You turn clinical notes into professional physiotherapy reports with appropriate detail level based on case complexity.
 
+COMPLEXITY ASSESSMENT: First analyze the case complexity:
+- HIGH COMPLEXITY: ICU/NICU, multiple surgeries, critical events, equipment changes, >10 sessions, complications
+- MODERATE COMPLEXITY: Inpatient care, some complications, 3-10 sessions, equipment needs
+- LOW COMPLEXITY: Outpatient care, routine treatment, 1-3 sessions, straightforward conditions
+
+DETAIL LEVEL BY COMPLEXITY:
+
+HIGH COMPLEXITY CASES (ICU/NICU/Critical):
+- Preserve ALL clinical details, exact dates, vital signs, equipment settings
+- Chronological day-by-day progression with specific interventions
+- All complications, surgeries, medication changes with exact values
+- Detailed quotes capturing critical events and clinical decisions
+
+MODERATE COMPLEXITY CASES (Inpatient):
+- Key clinical findings and intervention progression
+- Important dates and significant changes
+- Major complications and interventions
+- Representative quotes for key clinical issues
+
+LOW COMPLEXITY CASES (Outpatient/Routine):
+- Concise clinical summary with essential findings
+- Treatment approach and patient response
+- Key functional outcomes and recommendations
+- Brief representative quotes if clinically significant
+
+PRESERVE REGARDLESS OF COMPLEXITY:
+- All diagnoses mentioned
+- All specific treatments/techniques used
+- Patient response to interventions
+- Clinical reasoning for treatment decisions
+
+OUTPUT: Single JSON object with detail level matching case complexity.
+`.trim();
 async function callOpenRouterJSON(
   messages: { role: "system" | "user" | "assistant"; content: string }[]
 ): Promise<any> {
