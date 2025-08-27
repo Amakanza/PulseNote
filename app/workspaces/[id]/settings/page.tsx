@@ -397,14 +397,19 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
                 <div className="flex items-center gap-2 text-emerald-700">
                   <Mail className="w-4 h-4" />
                 </div>
-                <input
-                  type="email"
-                  placeholder="Enter email address"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="input flex-1"
-                  disabled={inviting}
-                />
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="input flex-1 border border-slate-300 px-3 py-2 rounded-md"
+                    disabled={inviting}
+                    style={{ 
+                    minWidth: '250px',
+                    backgroundColor: 'white',
+                    border: '1px solid #cbd5e1'
+                    }}
+                  />
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as UserRole)}
