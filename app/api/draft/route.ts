@@ -67,52 +67,66 @@ const SCHEMA_EXAMPLE = `{
     { "text": "Delivery was 2 hours late and the box was dented.", "speaker": "Client A", "timestamp": "12/08/24, 09:15" }
   ],
   "issues_table": [
-    { "theme": "Delivery delays", "details": "‘2 hours late’, affected order #123 and #128", "count": 2 }
+    { "theme": "Delivery delays", "details": "'2 hours late', affected order #123 and #128", "count": 2 }
   ],
   "action_items": [
-    { "title": "Adjust courier pickup window", "rationale": "Directly addresses ‘2 hours late’ quotes", "owner": "Ops", "priority": "High", "due_window": "7 days" }
+    { "title": "Adjust courier pickup window", "rationale": "Directly addresses '2 hours late' quotes", "owner": "Ops", "priority": "High", "due_window": "7 days" }
   ],
 
   "physio_signature_name": "Andile J. Mak",
   "physio_signature_title": "Physiotherapist"
 }`;
 
-const ADAPTIVE_SYSTEM = `
+const SYSTEM = `
 You turn clinical notes into professional physiotherapy reports with appropriate detail level based on case complexity.
 
 COMPLEXITY ASSESSMENT: First analyze the case complexity:
 - HIGH COMPLEXITY: ICU/NICU, multiple surgeries, critical events, equipment changes, >10 sessions, complications
-- MODERATE COMPLEXITY: Inpatient care, some complications, 3-10 sessions, equipment needs
+- MODERATE COMPLEXITY: Inpatient care, some complications, 3-10 sessions, equipment needs  
 - LOW COMPLEXITY: Outpatient care, routine treatment, 1-3 sessions, straightforward conditions
 
 DETAIL LEVEL BY COMPLEXITY:
 
 HIGH COMPLEXITY CASES (ICU/NICU/Critical):
-- Preserve ALL clinical details, exact dates, vital signs, equipment settings
+- Preserve ALL clinical details with exact dates, vital signs, equipment settings
 - Chronological day-by-day progression with specific interventions
 - All complications, surgeries, medication changes with exact values
 - Detailed quotes capturing critical events and clinical decisions
+- Include all equipment progressions (NPO2 → CPAP → ventilation)
+- Document exact desaturation values, resuscitation events, hemodynamic instability
 
 MODERATE COMPLEXITY CASES (Inpatient):
 - Key clinical findings and intervention progression
-- Important dates and significant changes
-- Major complications and interventions
+- Important dates and significant changes in patient status
+- Major complications and treatment responses
 - Representative quotes for key clinical issues
+- Functional mobility changes with assistance levels
+- Pain descriptions with locations and clinical observations
 
 LOW COMPLEXITY CASES (Outpatient/Routine):
 - Concise clinical summary with essential findings
 - Treatment approach and patient response
-- Key functional outcomes and recommendations
+- Key functional outcomes and improvements
 - Brief representative quotes if clinically significant
+- Focus on treatment effectiveness and home program compliance
 
 PRESERVE REGARDLESS OF COMPLEXITY:
-- All diagnoses mentioned
-- All specific treatments/techniques used
-- Patient response to interventions
-- Clinical reasoning for treatment decisions
+- MUST CAPTURE CLINICAL ITEMS: any diagnoses/diagnosis/Dx/impression/assessment AND any procedures/ops/surgeries/injections/tests that were DONE
+- All specific treatments/techniques used with exact names
+- Patient response to interventions with measurable outcomes
+- Clinical reasoning for treatment decisions and modifications
+- Concrete details: numbers, dates, names, locations, timings, laterality
 
-OUTPUT: Single JSON object with detail level matching case complexity.
+AVOID OVER-SUMMARIZATION:
+- Don't combine different days/sessions into generic statements
+- Don't compress specific technique names into categories
+- Don't generalize vital signs or equipment settings - keep exact values
+- Don't merge different complications into single descriptions
+- Don't lose surgical details or post-operative complications
+
+OUTPUT: Single JSON object with exact schema keys, with detail level matching case complexity.
 `.trim();
+
 async function callOpenRouterJSON(
   messages: { role: "system" | "user" | "assistant"; content: string }[]
 ): Promise<any> {
@@ -128,9 +142,9 @@ async function callOpenRouterJSON(
     body: JSON.stringify({
       model: "openai/gpt-4o-mini",
       messages,
-      temperature: 0.15,
+      temperature: 0.2,
       response_format: { type: "json_object" },
-      max_tokens: 2000,
+      max_tokens: 3500, // Increased for complex cases
     }),
   });
 
@@ -170,7 +184,7 @@ export async function POST(req: Request) {
     const limited = capMessages(messages);
 
     const userPrompt = [
-      `Template: ${templateId || "physio-default"}`,
+      `Template: ${templateId || "adaptive-complexity"}`,
       `Schema keys:`,
       SCHEMA_EXAMPLE,
       `Now fill the SAME KEYS using these messages:`,
