@@ -133,14 +133,6 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
     return currentUserRole === 'owner';
   };
 
-  const canChangeRole = (targetRole: UserRole, memberRole: UserRole) => {
-    if (currentUserRole === 'owner') return true;
-    if (currentUserRole === 'admin') {
-      return memberRole !== 'owner' && targetRole !== 'owner';
-    }
-    return false;
-  };
-
   const handleInviteMember = async () => {
     if (!inviteEmail.trim()) return;
     
@@ -391,4 +383,154 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
         {/* Invite Form */}
         {showInviteForm && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
-            <div cla
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-emerald-900">Invite New Member</h3>
+              <button
+                onClick={() => setShowInviteForm(false)}
+                className="text-emerald-600 hover:text-emerald-800"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  placeholder="Enter email address"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="input flex-1"
+                  disabled={inviting}
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as UserRole)}
+                  className="input"
+                  disabled={inviting}
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="editor">Editor</option>
+                  {currentUserRole === 'owner' && <option value="admin">Admin</option>}
+                </select>
+                <button
+                  onClick={handleInviteMember}
+                  disabled={!inviteEmail.trim() || inviting}
+                  className="btn btn-primary"
+                >
+                  {inviting ? 'Inviting...' : 'Invite'}
+                </button>
+              </div>
+              <p className="text-xs text-emerald-600">
+                An invitation email will be sent to this address. If they already have an account, they'll be added immediately.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Members List */}
+        <div className="space-y-3">
+          {members.map((member) => (
+            <div key={member.user_id} className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                  <span className="font-medium text-slate-600">
+                    {member.profile?.full_name?.charAt(0) || '?'}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {member.profile?.full_name || 'Unknown User'}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    Added {new Date(member.added_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {canManageMembers() && member.role !== 'owner' ? (
+                  <select
+                    value={member.role}
+                    onChange={(e) => handleRoleChange(member.user_id, e.target.value as UserRole)}
+                    disabled={updatingMember === member.user_id}
+                    className="input text-sm"
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    {currentUserRole === 'owner' && <option value="admin">Admin</option>}
+                  </select>
+                ) : (
+                  <span className={getRoleBadge(member.role)}>
+                    {getRoleIcon(member.role)}
+                    {member.role}
+                  </span>
+                )}
+                
+                {canManageMembers() && member.role !== 'owner' && (
+                  <button
+                    onClick={() => handleRemoveMember(member.user_id)}
+                    disabled={updatingMember === member.user_id}
+                    className="btn btn-sm p-2 hover:bg-red-50 hover:text-red-600"
+                    title="Remove member"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Danger Zone */}
+      {canDeleteWorkspace() && (
+        <section className="panel p-6 border-red-200 bg-red-50">
+          <div className="flex items-center gap-2 mb-4 text-red-800">
+            <AlertTriangle className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Danger Zone</h2>
+          </div>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-red-700">
+              Deleting this workspace is permanent and cannot be undone. All projects, reports, and member data will be lost.
+            </p>
+            
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Workspace
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 p-3 bg-white border border-red-300 rounded-lg">
+                <p className="text-sm text-red-800">
+                  Are you sure? This action cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDeleteWorkspace}
+                    disabled={deleting}
+                    className="btn btn-sm bg-red-600 text-white hover:bg-red-700"
+                  >
+                    {deleting ? 'Deleting...' : 'Yes, Delete'}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="btn btn-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
