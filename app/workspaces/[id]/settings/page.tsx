@@ -141,19 +141,7 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
     return false;
   };
 
-  const handleInviteMember = async () => {
-    if (!inviteEmail.trim()) return;
-    
-    setInviting(true);
-    try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          user_id: inviteEmail.trim(), // For now, using email as user_id
-          role: inviteRole 
-        })
-      });
+
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -349,51 +337,6 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
             </button>
           )}
         </div>
-
-        {/* Invite Form */}
-        {showInviteForm && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-emerald-900">Invite New Member</h3>
-              <button
-                onClick={() => setShowInviteForm(false)}
-                className="text-emerald-600 hover:text-emerald-800"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex items-center gap-2 text-emerald-700">
-                <Mail className="w-4 h-4" />
-              </div>
-              <input
-                type="text"
-                placeholder="User ID"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="input flex-1"
-                disabled={inviting}
-              />
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                className="input"
-                disabled={inviting}
-              >
-                <option value="viewer">Viewer</option>
-                <option value="editor">Editor</option>
-                {currentUserRole === 'owner' && <option value="admin">Admin</option>}
-              </select>
-              <button
-                onClick={handleInviteMember}
-                disabled={!inviteEmail.trim() || inviting}
-                className="btn btn-primary"
-              >
-                {inviting ? 'Inviting...' : 'Invite'}
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Members List */}
         <div className="space-y-3">
