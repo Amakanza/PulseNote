@@ -21,61 +21,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Check if current user has permission to add members
-    const { data: currentUserMembership } = await supa
-      .from("workspace_memberships")
-      .select("role")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user.id)
-      .single();
-
-    if (!currentUserMembership) {
-      return NextResponse.json({ error: "Not a member of this workspace" }, { status: 403 });
-    }
-
-    if (!['owner', 'admin'].includes(currentUserMembership.role)) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-    }
-
-    // Admins cannot invite owners
-    if (currentUserMembership.role === 'admin' && role === 'owner') {
-      return NextResponse.json({ error: "Cannot invite owners" }, { status: 403 });
-    }
-
-    // Check if target user exists
-    const { data: targetUser } = await supa
-      .from("profiles")
-      .select("id")
-      .eq("id", user_id)
-      .single();
-
-    if (!targetUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Check if user is already a member
-    const { data: existingMembership } = await supa
-      .from("workspace_memberships")
-      .select("*")
-      .eq("workspace_id", params.id)
-      .eq("user_id", user_id)
-      .single();
-
-    if (existingMembership) {
-      return NextResponse.json({ error: "User is already a member" }, { status: 409 });
-    }
-
-    // Add the user to the workspace
-    const { error } = await supa
-      .from("workspace_memberships")
-      .insert({ 
-        workspace_id: params.id, 
-        user_id: user_id, 
-        role 
-      });
+    // Use the function instead of direct INSERT
+    const { data, error } = await supa.rpc('manage_workspace_membership', {
+      p_workspace_id: params.id,
+      p_target_user_id: user_id,
+      p_role: role,
+      p_action: 'insert'
+    });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (!data.success) {
+      return NextResponse.json({ error: data.error }, { status: 400 });
     }
 
     return NextResponse.json({ success: true });
