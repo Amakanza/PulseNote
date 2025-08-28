@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="text-white font-bold text-sm">P</span>
               </div>
               <div className="leading-tight">
-                <div className="text-xs text-slate-500">Feedback Reporter</div>
+                <div className="text-xs text-slate-500">Clinical Note Reporter</div>
                 <h1 className="text-lg font-semibold tracking-tight">PulseNote</h1>
               </div>
             </div>
@@ -39,6 +39,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/" className="hover:text-slate-900">New Report</a>
               <a href="/workspaces" className="hover:text-slate-900">Workspaces</a>
               <a href="/report" className="hover:text-slate-900">Editor</a>
+              
+              {/* Global tutorial trigger */}
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
+                    (window as any).startPulseNoteTutorial();
+                  }
+                }}
+                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium transition-colors"
+                title="Take guided tour of PulseNote features"
+              >
+                📚 Tutorial
+              </button>
+              
               <UserMenu />
             </nav>
           </div>
