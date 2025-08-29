@@ -86,7 +86,7 @@ export const reportEditorTutorialSteps = [
     }
   },
   {
-    target: 'button[class*="btn"]:has-text("Bold")',
+    target: 'button:contains("Bold")',
     title: 'Formatting Tools',
     content: 'Use these formatting tools to make your report professional. Bold important clinical findings, create lists for treatment plans, and add headings for better organization.',
     position: 'bottom' as const,
@@ -102,7 +102,7 @@ export const reportEditorTutorialSteps = [
     position: 'bottom' as const
   },
   {
-    target: 'button:has-text("Download DOCX")',
+    target: 'button:contains("Download DOCX")',
     title: 'Download Professional Report',
     content: 'Export your completed physiotherapy report as a Word document ready for medical records, insurance submissions, or sharing with referring physicians.',
     position: 'left' as const,
