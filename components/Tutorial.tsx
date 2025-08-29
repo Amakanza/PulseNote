@@ -60,7 +60,7 @@ const Tutorial: React.FC<TutorialProps> = ({
               setCurrentStep(index);
               setIsActive(true);
             }
-          }, step.contextualTrigger.delay || 1500);
+          }, step.contextualTrigger?.delay || 1500);
 
           contextualTimeouts.current.set(step.target, timeoutId);
         };
