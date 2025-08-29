@@ -1,110 +1,155 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
-import { CheckCircle, XCircle, Loader2, ArrowLeft } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
-export default function AcceptInvitePage() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'processing'>('loading');
+// Component that uses useSearchParams - wrapped in Suspense
+function AcceptInviteContent() {
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  const token = searchParams.get('token');
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage('No invite token provided');
-      return;
-    }
-    handleInviteAcceptance();
-  }, [token]);
+    const acceptInvite = async () => {
+      try {
+        const token = searchParams.get('token');
+        
+        if (!token) {
+          setStatus('error');
+          setMessage('Invalid invitation link - no token provided');
+          return;
+        }
 
-  const handleInviteAcceptance = async () => {
-    try {
-      setStatus('processing');
-      
-      const supa = supabaseClient();
-      const { data: { user } } = await supa.auth.getUser();
-      
-      if (!user) {
-        const returnUrl = encodeURIComponent(window.location.href);
-        router.push(`/signin?returnUrl=${returnUrl}`);
-        return;
-      }
+        // Check if user is authenticated
+        const supa = supabaseClient();
+        const { data: { user } } = await supa.auth.getUser();
 
-      const response = await fetch('/api/invite/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
+        if (!user) {
+          // Redirect to signin with the current URL as redirect target
+          const currentUrl = window.location.href;
+          router.push(`/signin?redirectedFrom=${encodeURIComponent(currentUrl)}`);
+          return;
+        }
 
-      const data = await response.json();
+        // Accept the invitation
+        const response = await fetch('/api/invite/accept', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token }),
+        });
 
-      if (response.ok && data.ok) {
-        setStatus('success');
-        setMessage(data.message || 'Successfully joined workspace!');
-      } else {
+        const data = await response.json();
+
+        if (data.ok) {
+          setStatus('success');
+          setMessage(data.message || 'Successfully joined the workspace!');
+          
+          // Redirect to workspaces after a delay
+          setTimeout(() => {
+            router.push('/workspaces');
+          }, 3000);
+        } else {
+          setStatus('error');
+          setMessage(data.error || 'Failed to accept invitation');
+        }
+      } catch (error: any) {
         setStatus('error');
-        setMessage(data.error || 'Failed to accept invite');
+        setMessage(error.message || 'An unexpected error occurred');
       }
-    } catch (error: any) {
-      setStatus('error');
-      setMessage(error.message || 'An error occurred');
-    }
-  };
+    };
+
+    acceptInvite();
+  }, [searchParams, router]);
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-slate-600">Processing invite...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+        <div className="panel p-8 max-w-md w-full mx-4 text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">Processing Invitation</h1>
+          <p className="text-slate-600">Please wait while we process your invitation...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="max-w-md w-full mx-4">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center">
-            {status === 'success' ? (
-              <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            ) : (
-              <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-            )}
-            
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              {status === 'success' ? 'Invite Accepted!' : 'Invite Error'}
-            </h1>
-            
-            <p className="text-slate-600 mb-6">{message}</p>
-
-            <div className="space-y-3">
-              {status === 'success' && (
-                <button
-                  onClick={() => router.push('/workspaces')}
-                  className="w-full btn btn-primary"
-                >
-                  Go to Workspaces
-                </button>
-              )}
-              
-              <button
-                onClick={() => router.push('/workspaces')}
-                className="w-full btn flex items-center justify-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Workspaces
-              </button>
-            </div>
+  if (status === 'success') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+        <div className="panel p-8 max-w-md w-full mx-4 text-center">
+          <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">Welcome to the Team!</h1>
+          <p className="text-slate-600 mb-6">{message}</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/workspaces')}
+              className="btn btn-primary w-full"
+            >
+              Go to Workspaces
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="btn w-full"
+            >
+              Go to Home
+            </button>
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Error state
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+      <div className="panel p-8 max-w-md w-full mx-4 text-center">
+        <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+        <h1 className="text-xl font-semibold text-slate-900 mb-2">Invitation Error</h1>
+        <p className="text-slate-600 mb-6">{message}</p>
+        
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/workspaces')}
+            className="btn btn-primary w-full"
+          >
+            Go to Workspaces
+          </button>
+          <button
+            onClick={() => router.push('/signin')}
+            className="btn w-full"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
+// Loading fallback for Suspense
+function AcceptInviteLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+      <div className="panel p-8 max-w-md w-full mx-4 text-center">
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
+        <h1 className="text-xl font-semibold text-slate-900 mb-2">Loading</h1>
+        <p className="text-slate-600">Preparing invitation...</p>
+      </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<AcceptInviteLoading />}>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
