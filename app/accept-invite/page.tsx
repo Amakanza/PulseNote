@@ -128,8 +128,8 @@ function AcceptInviteContent() {
           </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
 
 // Loading fallback for Suspense
