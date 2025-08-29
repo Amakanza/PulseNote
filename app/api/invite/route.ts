@@ -36,13 +36,12 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (profile?.id) {
-      // Add membership immediately
-      const { error: insErr } = await supabaseAdmin
-        .from("workspace_memberships")
-        .insert({ workspace_id: workspaceId, user_id: profile.id, role });
-      if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
-      return NextResponse.json({ ok: true, immediate: true });
-    }
+      // Add membership immediately using raw SQL for proper type casting
+      const { error: insErr } = await supabaseAdmin.rpc('add_workspace_member', {
+        p_workspace_id: workspaceId,
+        p_user_id: profile.id,
+        p_role: role
+      });
 
     // 2) Create invite token - now including invited_by (using v2 function)
     const { data: tokenData, error: tokenErr } = await supabaseAdmin.rpc(
