@@ -44,9 +44,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, immediate: true });
     }
 
-    // 2) Create invite token - now including invited_by
+    // 2) Create invite token - now including invited_by (using v2 function)
     const { data: tokenData, error: tokenErr } = await supabaseAdmin.rpc(
-      "create_workspace_invite",
+      "create_workspace_invite_v2",
       { 
         p_workspace: workspaceId, 
         p_email: lower, 
@@ -55,7 +55,10 @@ export async function POST(req: Request) {
       }
     );
     
-    if (tokenErr) return NextResponse.json({ ok: false, error: tokenErr.message }, { status: 400 });
+    if (tokenErr) {
+      console.error("Error creating workspace invite:", tokenErr);
+      return NextResponse.json({ ok: false, error: tokenErr.message }, { status: 400 });
+    }
 
     const token = tokenData as string;
 
