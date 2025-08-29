@@ -36,12 +36,14 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (profile?.id) {
-      // Add membership immediately using raw SQL for proper type casting
-      const { error: insErr } = await supabaseAdmin.rpc('add_workspace_member', {
-        p_workspace_id: workspaceId,
-        p_user_id: profile.id,
-        p_role: role
-      });
+      // Add membership immediately with proper enum casting
+      const { error: insErr } = await supabaseAdmin
+        .from("workspace_memberships")
+        .insert({ 
+          workspace_id: workspaceId, 
+          user_id: profile.id, 
+          role: role as any // Cast to the enum type
+        });
       if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
       return NextResponse.json({ ok: true, immediate: true });
     }
