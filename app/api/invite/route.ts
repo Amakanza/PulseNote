@@ -42,6 +42,9 @@ export async function POST(req: Request) {
         p_user_id: profile.id,
         p_role: role
       });
+      if (insErr) return NextResponse.json({ ok: false, error: insErr.message }, { status: 400 });
+      return NextResponse.json({ ok: true, immediate: true });
+    }
 
     // 2) Create invite token - now including invited_by (using v2 function)
     const { data: tokenData, error: tokenErr } = await supabaseAdmin.rpc(
