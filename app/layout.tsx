@@ -39,20 +39,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/" className="hover:text-slate-900">New Report</a>
               <a href="/workspaces" className="hover:text-slate-900">Workspaces</a>
               <a href="/report" className="hover:text-slate-900">Editor</a>
-              
-              {/* Global tutorial trigger */}
-              <button
-                onClick={() => {
-                  if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
-                    (window as any).startPulseNoteTutorial();
-                  }
-                }}
-                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium transition-colors"
-                title="Take guided tour of PulseNote features"
-              >
-                📚 Tutorial
-              </button>
-              
               <UserMenu />
             </nav>
           </div>
