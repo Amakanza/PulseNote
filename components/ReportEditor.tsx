@@ -10,14 +10,22 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { useCallback, useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, FileText, Copy } from "lucide-react";
 
 export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
   const [downloading, setDownloading] = useState(false);
   const [fileName, setFileName] = useState("Feedback_Report");
+  const [inputText, setInputText] = useState("");
+  const [showInput, setShowInput] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     const sessionFileName = sessionStorage.getItem("report:fileName");
     if (sessionFileName) setFileName(sessionFileName);
+
+    // Load the original input text from session storage
+    const savedInput = sessionStorage.getItem("report:input");
+    if (savedInput) setInputText(savedInput);
   }, []);
 
   const editor = useEditor({
@@ -84,115 +92,245 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
     }
   }, [editor, fileName]);
 
+  const copyInputText = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(inputText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = inputText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  }, [inputText]);
+
+  const getInputLineCount = () => {
+    return inputText ? inputText.split(/\r?\n/).length : 0;
+  };
+
+  const getInputCharCount = () => {
+    return inputText.length;
+  };
+
   if (!editor) {
     return <div>Loading editor...</div>;
   }
 
   return (
-    <div className="panel overflow-hidden">
-      {/* Sticky + scrollable toolbar */}
-      <div className="sticky top-0 z-10 bg-white border-b -mx-2 px-2 py-2 overflow-x-auto">
-        <div className="flex items-center gap-2 min-w-max">
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            aria-label="Toggle bold"
-          >
-            Bold
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            aria-label="Toggle italic"
-          >
-            Italic
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            aria-label="Toggle bullet list"
-          >
-            Bullets
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            aria-label="Toggle numbered list"
-          >
-            Numbers
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().setHeading({ level: 1 }).run()}
-            aria-label="Set heading 1"
-          >
-            H1
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().setHeading({ level: 2 }).run()}
-            aria-label="Set heading 2"
-          >
-            H2
-          </button>
-          <button 
-            className="btn h-10 px-3" 
-            onClick={() => editor.chain().focus().setHeading({ level: 3 }).run()}
-            aria-label="Set heading 3"
-          >
-            H3
-          </button>
-          
-          <div className="flex-1" />
-          
-          <button 
-            className="btn h-10 px-3" 
-            onClick={saveSession}
-            aria-label="Save to sessionStorage"
-          >
-            Save
-          </button>
-          <button 
-            className="btn btn-primary h-10 px-3" 
-            onClick={exportHTML}
-            aria-label="Export as HTML"
-          >
-            Export HTML
-          </button>
+    <div className="space-y-4">
+      {/* Main Editor Panel */}
+      <div className="panel overflow-hidden">
+        {/* Sticky + scrollable toolbar */}
+        <div className="sticky top-0 z-10 bg-white border-b -mx-2 px-2 py-2 overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max">
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              aria-label="Toggle bold"
+            >
+              Bold
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              aria-label="Toggle italic"
+            >
+              Italic
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              aria-label="Toggle bullet list"
+            >
+              Bullets
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              aria-label="Toggle numbered list"
+            >
+              Numbers
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().setHeading({ level: 1 }).run()}
+              aria-label="Set heading 1"
+            >
+              H1
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().setHeading({ level: 2 }).run()}
+              aria-label="Set heading 2"
+            >
+              H2
+            </button>
+            <button 
+              className="btn h-10 px-3" 
+              onClick={() => editor.chain().focus().setHeading({ level: 3 }).run()}
+              aria-label="Set heading 3"
+            >
+              H3
+            </button>
+            
+            <div className="flex-1" />
+            
+            <button 
+              className="btn h-10 px-3" 
+              onClick={saveSession}
+              aria-label="Save to sessionStorage"
+            >
+              Save
+            </button>
+            <button 
+              className="btn btn-primary h-10 px-3" 
+              onClick={exportHTML}
+              aria-label="Export as HTML"
+            >
+              Export HTML
+            </button>
 
-          {/* File name input */}
-          <div className="flex items-center gap-2">
-            <label className="label" htmlFor="fileName">
-              File name
-            </label>
-            <input
-              id="fileName"
-              className="input w-40"
-              placeholder="Feedback_Report"
-              value={fileName}
-              onChange={(e) => setFileName(e.target.value)}
-              onBlur={saveSession}
-            />
-            <span className="small text-slate-500">.docx</span>
+            {/* File name input */}
+            <div className="flex items-center gap-2">
+              <label className="label" htmlFor="fileName">
+                File name
+              </label>
+              <input
+                id="fileName"
+                className="input w-40"
+                placeholder="Feedback_Report"
+                value={fileName}
+                onChange={(e) => setFileName(e.target.value)}
+                onBlur={saveSession}
+              />
+              <span className="small text-slate-500">.docx</span>
+            </div>
+
+            <button 
+              className="btn btn-primary" 
+              onClick={exportDocx} 
+              disabled={downloading}
+              aria-label="Download as DOCX"
+            >
+              {downloading ? "Creating…" : "Download DOCX"}
+            </button>
+          </div>
+        </div>
+
+        {/* Editor area */}
+        <div className="p-4 md:p-8">
+          <div className="prose">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      </div>
+
+      {/* Collapsible Original Input Section */}
+      {inputText && (
+        <div className="panel overflow-hidden">
+          {/* Header */}
+          <div 
+            className="flex items-center justify-between p-4 bg-slate-50 border-b cursor-pointer hover:bg-slate-100 transition-colors"
+            onClick={() => setShowInput(!showInput)}
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-slate-600" />
+              <div>
+                <h3 className="font-medium text-slate-900">Original Input</h3>
+                <p className="text-sm text-slate-600">
+                  {getInputLineCount()} lines • {getInputCharCount()} characters
+                  {!showInput && " • Click to expand"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {showInput && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyInputText();
+                  }}
+                  className={`btn btn-sm flex items-center gap-2 ${
+                    copySuccess ? 'bg-green-100 text-green-700' : ''
+                  }`}
+                  title="Copy original input to clipboard"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copySuccess ? 'Copied!' : 'Copy'}
+                </button>
+              )}
+              {showInput ? (
+                <ChevronUp className="w-5 h-5 text-slate-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-600" />
+              )}
+            </div>
           </div>
 
-          <button 
-            className="btn btn-primary" 
-            onClick={exportDocx} 
-            disabled={downloading}
-            aria-label="Download as DOCX"
-          >
-            {downloading ? "Creating…" : "Download DOCX"}
-          </button>
+          {/* Collapsible Content */}
+          {showInput && (
+            <div className="p-4 bg-white">
+              <div className="bg-slate-50 rounded-lg border p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-700">
+                    Raw Input Text
+                  </label>
+                  <div className="text-xs text-slate-500">
+                    This is what was originally entered or extracted from images
+                  </div>
+                </div>
+                <div className="relative">
+                  <textarea
+                    value={inputText}
+                    readOnly
+                    className="w-full h-64 p-3 bg-white border border-slate-200 rounded-md font-mono text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    placeholder="No original input found"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <button
+                      onClick={copyInputText}
+                      className={`btn btn-sm p-2 ${
+                        copySuccess 
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                          : 'bg-white hover:bg-slate-50'
+                      }`}
+                      title="Copy to clipboard"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Help Text */}
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Compare with your report:</strong> Use this original input to verify your edited report 
+                  captures all the important details from the raw clinical notes or extracted text.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Editor area */}
-      <div className="p-4 md:p-8">
-        <div className="prose">
-          <EditorContent editor={editor} />
+      {/* Empty state when no input available */}
+      {!inputText && (
+        <div className="panel p-6 text-center bg-slate-50">
+          <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+          <p className="text-sm text-slate-600">
+            No original input found. Go to the <a href="/" className="text-emerald-600 hover:text-emerald-700 underline">home page</a> to 
+            input clinical notes or upload images first.
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
