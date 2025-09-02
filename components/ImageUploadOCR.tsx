@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Camera, Upload, X, FileImage, Loader2, AlertCircle, Trash2 } from "lucide-react";
+import { Camera, Upload, X, FileImage, Loader2, AlertCircle, Trash2, Eye, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 
 interface ImageUploadProps {
   onTextExtracted: (text: string) => void;
@@ -23,10 +23,164 @@ interface OCRResult {
   debug?: any;
 }
 
+// Image Modal Component
+interface ImageModalProps {
+  image: ProcessedImage;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const ImageModal: React.FC<ImageModalProps> = ({ image, isOpen, onClose }) => {
+  const [scale, setScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
+
+  // Reset scale and rotation when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setScale(1);
+      setRotation(0);
+    }
+  }, [isOpen]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+      {/* Modal Content */}
+      <div className="relative max-w-7xl max-h-[95vh] w-full mx-4 bg-white rounded-lg shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 border-b">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-medium text-gray-900 truncate" title={image.file.name}>
+              {image.file.name}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {formatFileSize(image.file.size)} • {image.file.type}
+            </p>
+          </div>
+          
+          {/* Controls */}
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => setScale(Math.max(0.25, scale - 0.25))}
+              disabled={scale <= 0.25}
+              className="btn p-2 disabled:opacity-50"
+              title="Zoom out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-sm text-gray-600 min-w-[60px] text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              onClick={() => setScale(Math.min(3, scale + 0.25))}
+              disabled={scale >= 3}
+              className="btn p-2 disabled:opacity-50"
+              title="Zoom in"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setRotation((rotation + 90) % 360)}
+              className="btn p-2"
+              title="Rotate"
+            >
+              <RotateCw className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="btn p-2"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Image Container */}
+        <div className="relative overflow-auto" style={{ maxHeight: 'calc(95vh - 140px)' }}>
+          <div className="flex items-center justify-center min-h-[400px] p-4">
+            <img
+              src={image.preview}
+              alt={image.file.name}
+              className="max-w-full max-h-full object-contain transition-transform duration-200"
+              style={{ 
+                transform: `scale(${scale}) rotate(${rotation}deg)`,
+                transformOrigin: 'center'
+              }}
+              draggable={false}
+            />
+          </div>
+        </div>
+
+        {/* Footer with extracted text */}
+        {(image.text || image.error) && (
+          <div className="border-t bg-gray-50">
+            <div className="p-4">
+              {image.text ? (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                    <FileImage className="w-4 h-4" />
+                    Extracted Text ({image.text.length} characters)
+                  </h4>
+                  <div className="bg-white border rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+                      {image.text}
+                    </pre>
+                  </div>
+                </div>
+              ) : image.error && (
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-red-800 mb-1">OCR Failed</h4>
+                    <p className="text-sm text-red-600">{image.error}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Click outside to close */}
+      <div 
+        className="absolute inset-0 -z-10"
+        onClick={onClose}
+        aria-label="Close modal"
+      />
+    </div>
+  );
+};
+
 export default function ImageUploadOCR({ onTextExtracted, disabled = false }: ImageUploadProps) {
   const [images, setImages] = useState<ProcessedImage[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ProcessedImage | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -334,13 +488,20 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
                 <div className="flex gap-4">
                   {/* Image Preview */}
                   <div className="relative flex-shrink-0">
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg border overflow-hidden">
+                    <div 
+                      className="w-20 h-20 bg-gray-100 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all"
+                      onClick={() => setSelectedImage(image)}
+                      title="Click to view full size"
+                    >
                       <img
                         src={image.preview}
                         alt={image.file.name}
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all flex items-center justify-center">
+                        <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                     {!image.processing && (
                       <button
@@ -401,6 +562,15 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
         </div>
       )}
 
+      {/* Image Modal */}
+      {selectedImage && (
+        <ImageModal
+          image={selectedImage}
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+        />
+      )}
+
       {/* Help Text */}
       <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
         <p className="font-medium mb-1">Tips for better OCR results:</p>
@@ -409,6 +579,7 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
           <li>• Ensure text is clear, well-lit, and high contrast</li>
           <li>• Avoid blurry, rotated, or low-resolution images</li>
           <li>• Multiple images will be processed separately then combined</li>
+          <li>• <strong>Click on image thumbnails to view full size</strong></li>
           <li>• All images are processed temporarily and not stored permanently</li>
         </ul>
       </div>
