@@ -132,7 +132,26 @@ const ImageModal: React.FC<ImageModalProps> = ({ image, isOpen, onClose }) => {
                 transformOrigin: 'center'
               }}
               draggable={false}
+              onError={(e) => {
+                console.error('Image failed to load:', image.file.name);
+                // Try to recreate the blob URL if it failed
+                if (image.preview.startsWith('blob:')) {
+                  const newUrl = URL.createObjectURL(image.file);
+                  (e.target as HTMLImageElement).src = newUrl;
+                }
+              }}
+              onLoad={() => {
+                console.log('Image loaded successfully:', image.file.name);
+              }}
             />
+          </div>
+          
+          {/* Loading/Error State Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 opacity-0 pointer-events-none" id={`loading-${image.id}`}>
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">Loading image...</p>
+            </div>
           </div>
         </div>
 
@@ -333,17 +352,31 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
     setImages(prev => {
       const imageToRemove = prev.find(img => img.id === id);
       if (imageToRemove) {
-        cleanupImage(imageToRemove);
+        // Don't revoke URL immediately if modal is open
+        if (!selectedImage || selectedImage.id !== id) {
+          cleanupImage(imageToRemove);
+        }
       }
       return prev.filter(img => img.id !== id);
     });
+    
+    // Close modal if the selected image was removed
+    if (selectedImage?.id === id) {
+      setSelectedImage(null);
+    }
   };
 
   // Clear all images
   const clearAll = () => {
-    images.forEach(cleanupImage);
+    images.forEach(image => {
+      // Don't revoke URL of currently selected image
+      if (!selectedImage || selectedImage.id !== image.id) {
+        cleanupImage(image);
+      }
+    });
     setImages([]);
     setGlobalError(null);
+    setSelectedImage(null);
   };
 
   // Re-extract text from successful images
@@ -567,7 +600,13 @@ export default function ImageUploadOCR({ onTextExtracted, disabled = false }: Im
         <ImageModal
           image={selectedImage}
           isOpen={!!selectedImage}
-          onClose={() => setSelectedImage(null)}
+          onClose={() => {
+            // Clean up the selected image's blob URL when modal closes
+            if (selectedImage && !images.find(img => img.id === selectedImage.id)) {
+              cleanupImage(selectedImage);
+            }
+            setSelectedImage(null);
+          }}
         />
       )}
 
