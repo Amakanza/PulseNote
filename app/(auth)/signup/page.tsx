@@ -30,40 +30,28 @@ export default function SignUp() {
     return firstInitial + lastInitial;
   };
 
-  // Check if username exists in organization and generate unique one
-  const generateUniqueUsername = async (baseUsername: string, organization: string): Promise<string> => {
+  // Check if username exists and generate unique one
+  const generateUniqueUsername = async (baseUsername: string, organizationName?: string): Promise<string> => {
     try {
       const supa = supabaseClient();
       let username = baseUsername;
       let counter = 1;
 
       while (counter <= 999) {
-        // Check if username exists in this organization in user_organizations table
+        // Check if username exists
         const { data, error } = await supa
-          .from("user_organizations")
-          .select(`
-            user_id,
-            auth_users:user_id (
-              raw_user_meta_data
-            )
-          `)
-          .eq("organization_id", organization || null)
-          .limit(100); // Get all users in this org
+          .from("profiles")
+          .select("username")
+          .eq("username", username)
+          .limit(1);
 
         if (error) {
-          console.error("Error checking usernames:", error);
-          // If there's an error, just use the base username
-          return baseUsername;
+          console.error("Error checking username:", error);
+          return baseUsername; // Fallback to base username
         }
 
-        // Check if this username is taken by examining user metadata
-        const usernameTaken = data?.some(membership => {
-          const userData = membership.auth_users as any;
-          return userData?.raw_user_meta_data?.username === username;
-        });
-
-        if (!usernameTaken) {
-          return username;
+        if (!data || data.length === 0) {
+          return username; // Username is available
         }
 
         // Username exists, try with number
@@ -111,11 +99,10 @@ export default function SignUp() {
     try {
       const supa = supabaseClient();
       
-      // Find or create organization if specified
+      // Find existing organization if specified
       let organizationId = null;
       if (form.organization.trim()) {
-        // Check if organization exists
-        const { data: existingOrg, error: orgError } = await supa
+        const { data: existingOrg } = await supa
           .from("organizations")
           .select("id")
           .eq("name", form.organization.trim())
@@ -123,17 +110,12 @@ export default function SignUp() {
 
         if (existingOrg) {
           organizationId = existingOrg.id;
-        } else if (orgError?.code === 'PGRST116') {
-          // Organization doesn't exist, we'll let the trigger create a personal one
-          organizationId = null;
-        } else if (orgError) {
-          console.error("Organization check error:", orgError);
         }
       }
 
       // Generate unique username
       const baseUsername = generateUsername(form.firstName, form.lastName);
-      const uniqueUsername = await generateUniqueUsername(baseUsername, organizationId);
+      const uniqueUsername = await generateUniqueUsername(baseUsername, form.organization);
 
       // Sign up with Supabase Auth
       const { data, error } = await supa.auth.signUp({
@@ -154,12 +136,15 @@ export default function SignUp() {
       if (error) {
         console.error("Signup error:", error);
         
+        // Handle specific error types
         if (error.message.includes("already registered")) {
           setMsg("This email address is already registered. Try signing in instead.");
         } else if (error.message.includes("rate limit")) {
           setMsg("Too many signup attempts. Please wait a few minutes and try again.");
         } else if (error.message.includes("timeout") || error.message.includes("504")) {
           setMsg("Server is currently busy. Please try again in a moment.");
+        } else if (error.message.includes("Database error saving new user")) {
+          setMsg("There was a technical issue creating your account. Please try again or contact support if the problem persists.");
         } else {
           setMsg(`Signup failed: ${error.message}`);
         }
@@ -167,22 +152,9 @@ export default function SignUp() {
       }
 
       if (data.user) {
-        // If user specified an existing organization, add them to it as editor
-        if (organizationId && form.organization.trim()) {
-          try {
-            await supa
-              .from("user_organizations")
-              .insert({
-                user_id: data.user.id,
-                organization_id: organizationId,
-                role: 'editor', // Default role for joining existing org
-              });
-          } catch (orgError) {
-            console.error("Error joining organization:", orgError);
-            // Don't fail the signup for this
-          }
-        }
-
+        // If user specified an existing organization, we'll handle invitation separately
+        // The trigger should have created the profile and personal organization
+        
         if (!data.user.email_confirmed_at) {
           setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account. Your username is: ${uniqueUsername}`);
         } else {
