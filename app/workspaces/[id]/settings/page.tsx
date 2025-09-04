@@ -108,7 +108,7 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
         }));
       }
 
-      // Get current user's role
+      // Get current user role
       const currentMember = membersWithProfiles.find(m => m.user_id === user.id);
       if (!currentMember) {
         router.push('/workspaces');
@@ -429,7 +429,7 @@ export default function WorkspaceSettings({ params }: WorkspaceSettingsProps) {
                 </button>
               </div>
               <p className="text-xs text-emerald-600">
-                An invitation email will be sent to this address. If they already have an account, they'll be added immediately.
+                An invitation email will be sent to this address. If they already have an account, they will be added immediately.
               </p>
             </div>
           </div>
