@@ -204,6 +204,22 @@ export default function SecuritySettingsPage() {
             </div>
           )}
 
+          {totpEnabled && (
+            <div className="space-y-4">
+              <p className="text-slate-600">
+                Two-factor authentication is enabled for your account. You can disable it below if needed.
+              </p>
+              <button
+                onClick={disableTOTP}
+                disabled={loading}
+                className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+              >
+                <Key className="w-4 h-4" />
+                {loading ? 'Disabling...' : 'Disable Two-Factor Authentication'}
+              </button>
+            </div>
+          )}
+
           {showSetup && (
             <div className="space-y-6">
               <div>
@@ -247,3 +263,52 @@ export default function SecuritySettingsPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div>
+                <h3 className="font-medium text-slate-900 mb-3">Step 2: Verify Setup</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Enter the 6-digit code from your authenticator app to complete setup.
+                </p>
+                
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Enter 6-digit code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="input flex-1 max-w-xs"
+                    maxLength={6}
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={enableTOTP}
+                    disabled={!verificationCode || verificationCode.length !== 6 || loading}
+                    className="btn btn-primary"
+                  >
+                    {loading ? 'Verifying...' : 'Enable 2FA'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowSetup(false);
+                    setQrCodeUrl('');
+                    setSecret('');
+                    setVerificationCode('');
+                  }}
+                  className="btn"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
