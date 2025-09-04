@@ -191,7 +191,7 @@ export default function SecuritySettingsPage() {
             <div className="space-y-4">
               <p className="text-slate-600">
                 Add an extra layer of security to your account with two-factor authentication. 
-                You'll need an authenticator app like Google Authenticator or Authy.
+                You will need an authenticator app like Google Authenticator or Authy.
               </p>
               <button
                 onClick={generateTOTP}
