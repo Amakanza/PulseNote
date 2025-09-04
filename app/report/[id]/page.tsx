@@ -77,23 +77,26 @@ export default function ReportViewerPage() {
     }
   };
 
-  const handleSave = async (newContent: string) => {
+  const handleSave = async () => {
     if (!report) return;
     
     setSaving(true);
     try {
+      // Get the current content from session storage (where ReportEditor saves it)
+      const currentContent = sessionStorage.getItem("report:html") || report.content;
+      
       const supa = supabaseClient();
       const { error } = await supa
         .from('projects')
         .update({ 
-          content: newContent,
+          content: currentContent,
           updated_at: new Date().toISOString()
         })
         .eq('id', report.id);
 
       if (error) throw error;
 
-      setReport({ ...report, content: newContent, updated_at: new Date().toISOString() });
+      setReport({ ...report, content: currentContent, updated_at: new Date().toISOString() });
       setIsEditing(false);
     } catch (err: any) {
       setError(err.message);
@@ -178,7 +181,7 @@ export default function ReportViewerPage() {
                 Cancel
               </button>
               <button
-                onClick={() => handleSave(report.content)}
+                onClick={handleSave}
                 className="btn btn-primary"
                 disabled={saving}
               >
@@ -190,7 +193,6 @@ export default function ReportViewerPage() {
         <div className="flex-1 overflow-hidden">
           <ReportEditor 
             initialHTML={report.content || ''} 
-            onSave={handleSave}
           />
         </div>
       </div>
