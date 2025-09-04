@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabaseClient } from '@/lib/supabase/client';
+// Try importing with explicit .tsx extension
 import Sidebar from './Sidebar';
 
 interface SidebarLayoutProps {
