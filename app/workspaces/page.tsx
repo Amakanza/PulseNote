@@ -313,7 +313,7 @@ export default function WorkspacesPage() {
         <div className="text-center">
           <h3 className="font-medium text-slate-900 mb-2">Need help getting started?</h3>
         <p className="text-sm text-slate-600 mb-4">
-            Workspaces help you organize your team's reports and collaborate more effectively
+            Workspaces help you organize organization reports and collaborate more effectively
           </p>
           <div className="flex justify-center gap-3">
             <button className="btn btn-sm">
