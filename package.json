@@ -1,6 +1,17 @@
 {
+  "name": "pulsenote",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "vercel-build": "next build"
+  },
   "dependencies": {
     "@google-cloud/vision": "^4.0.2",
+    "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/ssr": "^0.0.10",
     "@supabase/supabase-js": "^2.38.4",
     "@tiptap/extension-heading": "^2.1.13",
