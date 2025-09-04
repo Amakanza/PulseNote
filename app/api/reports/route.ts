@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       created_at: report.created_at,
       updated_at: report.updated_at,
       workspace_id: report.workspace_id,
-      workspace_name: report.workspace?.name || 'Personal',
+      workspace_name: (report.workspace as any)?.name || 'Personal',
       created_by: report.created_by
     };
 
