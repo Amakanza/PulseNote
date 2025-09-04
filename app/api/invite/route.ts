@@ -1,12 +1,14 @@
-// app/api/invite/route.ts - Fixed version with email
+// app/api/invite/route.ts - Enhanced with audit logging and rate limiting
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { withRateLimit } from "@/lib/rateLimit";
+import { AuditLogger } from "@/lib/audit";
+import { PrivacyLogger } from "@/lib/logging";
 
 export const runtime = "nodejs";
 
-// Simple email function using Supabase's built-in email (if configured)
 async function sendInviteEmail({
   email,
   inviterName,
@@ -20,8 +22,6 @@ async function sendInviteEmail({
   role: string;
   inviteUrl: string;
 }) {
-  // For now, we'll use Supabase's auth invite with custom redirect
-  // This requires your Supabase project to have email configured
   try {
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: inviteUrl,
@@ -45,143 +45,207 @@ async function sendInviteEmail({
 }
 
 export async function POST(req: Request) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { get: (k) => cookieStore.get(k)?.value } }
-    );
+  const startTime = Date.now();
+  
+  return withRateLimit(req, 'invite', async () => {
+    try {
+      const cookieStore = cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { get: (k) => cookieStore.get(k)?.value } }
+      );
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
-    }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        PrivacyLogger.logRequest(req, startTime, 401);
+        return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
+      }
 
-    const { workspaceId, email, role = "viewer" } = await req.json();
-    
-    if (!workspaceId || !email) {
-      return NextResponse.json({ ok: false, error: "Missing workspaceId or email" }, { status: 400 });
-    }
+      const { workspaceId, email, role = "viewer" } = await req.json();
+      
+      if (!workspaceId || !email) {
+        PrivacyLogger.logRequest(req, startTime, 400);
+        return NextResponse.json({ ok: false, error: "Missing workspaceId or email" }, { status: 400 });
+      }
 
-    // Validate role enum
-    const validRoles = ['owner', 'admin', 'editor', 'viewer'];
-    if (!validRoles.includes(role)) {
-      return NextResponse.json({ ok: false, error: "Invalid role" }, { status: 400 });
-    }
+      // Validate role enum
+      const validRoles = ['owner', 'admin', 'editor', 'viewer'];
+      if (!validRoles.includes(role)) {
+        PrivacyLogger.logRequest(req, startTime, 400);
+        return NextResponse.json({ ok: false, error: "Invalid role" }, { status: 400 });
+      }
 
-    const lower = email.toLowerCase();
+      const lower = email.toLowerCase();
+      const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // 1) Check if user already exists
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, email")
-      .eq("email", lower)
-      .maybeSingle();
-
-    if (profile?.id) {
-      // User exists - check if already in workspace
-      const { data: existingMembership } = await supabaseAdmin
+      // Check if user has permission to invite
+      const { data: membership } = await supabaseAdmin
         .from("workspace_memberships")
-        .select("id")
+        .select("role")
         .eq("workspace_id", workspaceId)
-        .eq("user_id", profile.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!membership || !['owner', 'admin'].includes(membership.role)) {
+        await AuditLogger.log({
+          actorUserId: user.id,
+          workspaceId,
+          action: 'invitation.denied',
+          targetType: 'invitation',
+          targetId: lower,
+          ipAddress: ip,
+          userAgent,
+          metadata: { reason: 'insufficient_permissions', attempted_role: role }
+        });
+
+        PrivacyLogger.logRequest(req, startTime, 403);
+        return NextResponse.json({ ok: false, error: "Insufficient permissions to invite users" }, { status: 403 });
+      }
+
+      // Check if user already exists
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email")
+        .eq("email", lower)
         .maybeSingle();
 
-      if (existingMembership) {
-        return NextResponse.json({ ok: false, error: "User is already a member of this workspace" }, { status: 400 });
-      }
+      if (profile?.id) {
+        // User exists - check if already in workspace
+        const { data: existingMembership } = await supabaseAdmin
+          .from("workspace_memberships")
+          .select("id")
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", profile.id)
+          .maybeSingle();
 
-      // Add membership immediately with proper enum casting
-      const { error: insErr } = await supabaseAdmin
-        .rpc('sql', {
-          query: `
-            INSERT INTO workspace_memberships (workspace_id, user_id, role) 
-            VALUES ($1, $2, $3::user_role)
-          `,
-          params: [workspaceId, profile.id, role]
+        if (existingMembership) {
+          PrivacyLogger.logRequest(req, startTime, 400);
+          return NextResponse.json({ ok: false, error: "User is already a member of this workspace" }, { status: 400 });
+        }
+
+        // Add membership immediately
+        const { error: insErr } = await supabaseAdmin
+          .from('workspace_memberships')
+          .insert({
+            workspace_id: workspaceId,
+            user_id: profile.id,
+            role: role
+          });
+        
+        if (insErr) {
+          console.error("Error adding existing user to workspace:", insErr);
+          PrivacyLogger.logRequest(req, startTime, 500);
+          return NextResponse.json({ ok: false, error: "Failed to add user to workspace" }, { status: 500 });
+        }
+
+        // Log the addition
+        await AuditLogger.logMembershipChange(
+          user.id,
+          workspaceId,
+          profile.id,
+          'added',
+          undefined,
+          role,
+          ip,
+          userAgent
+        );
+        
+        PrivacyLogger.logRequest(req, startTime, 200);
+        return NextResponse.json({ 
+          ok: true, 
+          immediate: true,
+          message: `User has been added to the workspace as ${role}`
         });
-      
-      if (insErr) {
-        console.error("Error adding existing user to workspace:", insErr);
-        return NextResponse.json({ ok: false, error: "Failed to add user to workspace" }, { status: 400 });
       }
+
+      // User doesn't exist - create invitation
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      const { error: inviteError } = await supabaseAdmin
+        .from('workspace_invitations')
+        .insert({
+          workspace_id: workspaceId,
+          email: lower,
+          role,
+          token,
+          invited_by: user.id,
+          expires_at: expiresAt.toISOString()
+        });
+
+      if (inviteError) {
+        console.error("Error creating invitation:", inviteError);
+        PrivacyLogger.logRequest(req, startTime, 500);
+        return NextResponse.json({ ok: false, error: inviteError.message }, { status: 500 });
+      }
+
+      // Get workspace and inviter details for email
+      const { data: workspace } = await supabaseAdmin
+        .from("workspaces")
+        .select("name")
+        .eq("id", workspaceId)
+        .single();
+
+      const { data: inviterProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      const inviteUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invite?token=${token}`;
       
-      return NextResponse.json({ 
-        ok: true, 
-        immediate: true,
-        message: `${lower} has been added to the workspace as ${role}`
+      // Send email
+      const emailSent = await sendInviteEmail({
+        email: lower,
+        inviterName: inviterProfile?.full_name || user.email || 'Someone',
+        workspaceName: workspace?.name || 'Workspace',
+        role: role,
+        inviteUrl: inviteUrl
       });
-    }
 
-    // 2) User doesn't exist - create invite token
-    const { data: tokenData, error: tokenErr } = await supabaseAdmin.rpc(
-      "create_workspace_invite_v2",
-      { 
-        p_workspace: workspaceId, 
-        p_email: lower, 
-        p_role: role,
-        p_invited_by: user.id
+      // Log the invitation
+      await AuditLogger.log({
+        actorUserId: user.id,
+        workspaceId,
+        action: 'invitation.created',
+        targetType: 'invitation',
+        targetId: lower,
+        ipAddress: ip,
+        userAgent,
+        metadata: { 
+          role, 
+          emailSent,
+          expiresAt: expiresAt.toISOString()
+        }
+      });
+
+      if (!emailSent) {
+        PrivacyLogger.warn('Email invitation failed to send', {
+          userId: user.id,
+          workspaceId,
+          targetEmail: lower
+        });
+
+        return NextResponse.json({ 
+          ok: true, 
+          immediate: false,
+          message: `Invitation created but email failed to send. Please share this link manually: ${inviteUrl}`,
+          inviteUrl: inviteUrl
+        });
       }
-    );
-    
-    if (tokenErr) {
-      console.error("Error creating workspace invite:", tokenErr);
-      return NextResponse.json({ ok: false, error: tokenErr.message }, { status: 400 });
-    }
 
-    const token = tokenData as string;
-
-    // 3) Get workspace and inviter details
-    const { data: workspace } = await supabaseAdmin
-      .from("workspaces")
-      .select("name")
-      .eq("id", workspaceId)
-      .single();
-
-    const { data: inviterProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .single();
-
-    const inviteUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invite?token=${token}`;
-    
-    // 4) Send email
-    const emailSent = await sendInviteEmail({
-      email: lower,
-      inviterName: inviterProfile?.full_name || user.email || 'Someone',
-      workspaceName: workspace?.name || 'Workspace',
-      role: role,
-      inviteUrl: inviteUrl
-    });
-
-    if (!emailSent) {
-      // Log details for manual sending
-      console.log("=== MANUAL INVITE (Email Failed) ===");
-      console.log(`To: ${lower}`);
-      console.log(`From: ${inviterProfile?.full_name || user.email}`);
-      console.log(`Workspace: ${workspace?.name}`);
-      console.log(`Role: ${role}`);
-      console.log(`Invite URL: ${inviteUrl}`);
-      console.log("===================================");
-
+      PrivacyLogger.logRequest(req, startTime, 200);
       return NextResponse.json({ 
         ok: true, 
         immediate: false,
-        message: `Invitation created but email failed to send. Please share this link manually: ${inviteUrl}`,
-        inviteUrl: inviteUrl
+        message: `Invitation sent to ${lower}`
       });
+
+    } catch (error: any) {
+      PrivacyLogger.logRequest(req, startTime, 500, error);
+      return NextResponse.json({ ok: false, error: error.message || "Internal server error" }, { status: 500 });
     }
-
-    return NextResponse.json({ 
-      ok: true, 
-      immediate: false,
-      message: `Invitation sent to ${lower}`
-    });
-
-  } catch (error: any) {
-    console.error("Invite error:", error);
-    return NextResponse.json({ ok: false, error: error.message || "Internal server error" }, { status: 500 });
-  }
+  });
 }
