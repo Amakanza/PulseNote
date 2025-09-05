@@ -35,6 +35,21 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
+// Type for the Supabase workspace relation response
+interface WorkspaceRelation {
+  name: string;
+}
+
+interface ProjectWithWorkspace {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at?: string;
+  workspace_id: string;
+  workspace: WorkspaceRelation | WorkspaceRelation[] | null;
+  content: any;
+}
+
 export default function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,15 +96,27 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
 
       if (error) throw error;
 
-      const reportsData: Report[] = (projects || []).map(project => ({
-        id: project.id,
-        title: project.title || 'Untitled Report',
-        created_at: project.created_at,
-        updated_at: project.updated_at,
-        workspace_id: project.workspace_id,
-        workspace_name: project.workspace?.name || 'Personal',
-        preview: extractPreview(project.content)
-      }));
+      const reportsData: Report[] = (projects || []).map((project: ProjectWithWorkspace) => {
+        // Handle workspace relation that might be an array or single object
+        let workspaceName = 'Personal';
+        if (project.workspace) {
+          if (Array.isArray(project.workspace)) {
+            workspaceName = project.workspace[0]?.name || 'Personal';
+          } else {
+            workspaceName = project.workspace.name || 'Personal';
+          }
+        }
+
+        return {
+          id: project.id,
+          title: project.title || 'Untitled Report',
+          created_at: project.created_at,
+          updated_at: project.updated_at,
+          workspace_id: project.workspace_id,
+          workspace_name: workspaceName,
+          preview: extractPreview(project.content)
+        };
+      });
 
       setReports(reportsData);
     } catch (error) {
@@ -104,9 +131,9 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
     
     // If content is HTML, extract text
     if (typeof content === 'string') {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = content;
-      return tempDiv.textContent?.slice(0, 100) || '';
+      // Simple HTML tag removal for preview
+      const withoutTags = content.replace(/<[^>]*>/g, ' ');
+      return withoutTags.replace(/\s+/g, ' ').slice(0, 100).trim();
     }
     
     // If content is JSON, extract meaningful text
@@ -263,7 +290,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
       </div>
 
       {/* Reports List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto sidebar-scrollbar">
         {loading ? (
           <div className="p-4 text-center text-slate-400">
             Loading reports...
@@ -278,7 +305,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
               <div
                 key={report.id}
                 onClick={() => handleReportClick(report.id)}
-                className={`group mx-2 mb-1 p-3 rounded-lg cursor-pointer transition-colors relative ${
+                className={`group mx-2 mb-1 p-3 rounded-lg cursor-pointer transition-colors relative report-item ${
                   selectedReport === report.id || pathname.includes(report.id)
                     ? 'bg-slate-700' 
                     : 'hover:bg-slate-800'
@@ -318,7 +345,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                     </button>
                     
                     {showDropdown === report.id && (
-                      <div className="absolute right-0 top-8 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 z-10 min-w-32">
+                      <div className="absolute right-0 top-8 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 z-10 min-w-32 dropdown-menu">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
