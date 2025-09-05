@@ -1,4 +1,4 @@
-// app/reports/[id]/page.tsx
+// app/report/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -6,8 +6,37 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabaseClient } from '@/lib/supabase/client';
 import { FileText, Download, Edit, Share, Calendar, User, Building } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import Tutorial from '../../../components/Tutorial';
 
 const ReportEditor = dynamic(() => import('@/components/ReportEditor'), { ssr: false });
+
+// Tutorial steps for report viewing
+const reportViewerTutorialSteps = [
+  {
+    target: '.prose',
+    title: 'Report Content',
+    content: 'This is your saved report content. You can view the full formatted report here.',
+    position: 'top' as const
+  },
+  {
+    target: 'button:has(.lucide-edit)',
+    title: 'Edit Report',
+    content: 'Click this button to edit your report using the rich text editor.',
+    position: 'bottom' as const
+  },
+  {
+    target: 'button:has(.lucide-download)',
+    title: 'Download Report',
+    content: 'Export your report as a Word document for sharing or printing.',
+    position: 'bottom' as const
+  },
+  {
+    target: 'button:has(.lucide-share)',
+    title: 'Share Report',
+    content: 'Share your report with colleagues or copy the link to send to others.',
+    position: 'bottom' as const
+  }
+];
 
 interface Report {
   id: string;
@@ -142,6 +171,15 @@ export default function ReportViewerPage() {
     });
   };
 
+  // Tutorial handlers
+  const handleTutorialComplete = () => {
+    console.log('Report viewer tutorial completed!');
+  };
+
+  const handleTutorialSkip = () => {
+    console.log('Report viewer tutorial skipped');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -201,6 +239,15 @@ export default function ReportViewerPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Tutorial Component */}
+      <Tutorial
+        steps={reportViewerTutorialSteps}
+        onComplete={handleTutorialComplete}
+        onSkip={handleTutorialSkip}
+        showOnFirstVisit={true}
+        autoStart={false}
+      />
+
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-6 py-6">
@@ -245,15 +292,31 @@ export default function ReportViewerPage() {
               </button>
               <button
                 onClick={() => {
-                  navigator.share && navigator.share({
-                    title: report.title,
-                    url: window.location.href
-                  });
+                  if (navigator.share) {
+                    navigator.share({
+                      title: report.title,
+                      url: window.location.href
+                    });
+                  } else {
+                    // Fallback: copy to clipboard
+                    navigator.clipboard.writeText(window.location.href);
+                  }
                 }}
                 className="btn flex items-center gap-2"
               >
                 <Share className="w-4 h-4" />
                 Share
+              </button>
+              <button 
+                className="btn btn-sm" 
+                onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
+                    (window as any).startPulseNoteTutorial();
+                  }
+                }}
+                title="Take report viewer tour"
+              >
+                📚 Tutorial
               </button>
             </div>
           </div>
