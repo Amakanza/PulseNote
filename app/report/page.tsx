@@ -2,57 +2,113 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-// Import Tutorial and steps - uncomment when files are created
-// import Tutorial from "../../components/Tutorial";
-// import { reportEditorTutorialSteps } from "../../lib/tutorialSteps";
+import Tutorial from "../../components/Tutorial";
 
-const ReportEditor = dynamic(()=>import("../../components/ReportEditor"), { ssr: false });
+// Tutorial steps for the report editor
+const reportEditorTutorialSteps = [
+  {
+    target: '.prose',
+    title: 'Welcome to the Report Editor',
+    content: 'This is where you can edit and format your clinical reports. Click anywhere in the editor to start typing.',
+    position: 'bottom' as const
+  },
+  {
+    target: 'button[aria-label="Toggle bold"]',
+    title: 'Text Formatting',
+    content: 'Use these buttons to format your text. Make important findings bold or italic.',
+    position: 'bottom' as const
+  },
+  {
+    target: 'button[aria-label="Set heading 1"]',
+    title: 'Document Structure',
+    content: 'Use headings to organize your report into clear sections like Assessment, Treatment, and Recommendations.',
+    position: 'bottom' as const
+  },
+  {
+    target: 'button[aria-label="Save to reports library"]',
+    title: 'Save Your Work',
+    content: 'Save your report to your library to access it later and share with your team.',
+    position: 'bottom' as const
+  }
+];
+
+const ReportEditor = dynamic(() => import("../../components/ReportEditor"), { 
+  ssr: false,
+  loading: () => (
+    <div className="panel p-8 min-h-[400px] flex items-center justify-center">
+      <div className="text-slate-600">Loading editor...</div>
+    </div>
+  )
+});
 
 export default function ReportPage() {
   const [initialHtml, setInitialHtml] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
   
-  useEffect(()=>{
+  useEffect(() => {
+    setMounted(true);
     const saved = sessionStorage.getItem("report:html") || "<h1>Physiotherapy Report</h1><p>Start editing your clinical documentation...</p>";
     setInitialHtml(saved);
   }, []);
 
-  // Tutorial handlers - uncomment when Tutorial component is created
-  // const handleTutorialComplete = () => {
-  //   console.log('Report editor tutorial completed!');
-  // };
+  // Tutorial handlers
+  const handleTutorialComplete = () => {
+    console.log('Report editor tutorial completed!');
+  };
 
-  // const handleTutorialSkip = () => {
-  //   console.log('Report editor tutorial skipped');
-  // };
+  const handleTutorialSkip = () => {
+    console.log('Report editor tutorial skipped');
+  };
+
+  // Don't render anything until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <section className="panel p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Report editor</h1>
+          </div>
+        </section>
+        <div className="panel p-8 min-h-[400px] flex items-center justify-center">
+          <div className="text-slate-600">Loading editor...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Tutorial Component - uncomment when created */}
-      {/* <Tutorial
+    <div className="space-y-6 p-6">
+      {/* Tutorial Component */}
+      <Tutorial
         steps={reportEditorTutorialSteps}
         onComplete={handleTutorialComplete}
         onSkip={handleTutorialSkip}
         showOnFirstVisit={true}
         autoStart={false}
-      /> */}
+      />
 
       <section className="panel p-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Report editor</h1>
-          {/* Tutorial button - uncomment when Tutorial is created */}
-          {/* <button 
-            className="btn" 
-            onClick={() => {
-              if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
-                (window as any).startPulseNoteTutorial();
-              }
-            }}
-            title="Take editor tour"
-          >
-            📚 Editor Tutorial
-          </button> */}
+          <h1 className="text-xl font-semibold">Report Editor</h1>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-slate-500">
+              Edit and customize your report with rich formatting
+            </div>
+            <button 
+              className="btn btn-sm" 
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
+                  (window as any).startPulseNoteTutorial();
+                }
+              }}
+              title="Take editor tour"
+            >
+              📚 Tutorial
+            </button>
+          </div>
         </div>
       </section>
+      
       <ReportEditor initialHTML={initialHtml} />
     </div>
   );
