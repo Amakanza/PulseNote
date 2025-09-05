@@ -22,24 +22,57 @@ function SignInForm() {
     
     try {
       const supa = supabaseClient();
-      const { error } = await supa.auth.signInWithPassword({ email, password });
+      
+      const { data, error } = await supa.auth.signInWithPassword({ 
+        email: email.trim().toLowerCase(), 
+        password 
+      });
       
       if (error) {
-        setMsg(error.message);
-      } else {
-        setMsg("Signed in successfully! Redirecting...");
+        const errorMessage = error.message?.toLowerCase() || '';
         
-        // Get the redirect URL from query params, or default to home
-        const redirectTo = searchParams.get("redirectedFrom") || "/";
-        
-        // Small delay to show success message
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 1000);
+        if (errorMessage.includes('invalid login credentials') || 
+            errorMessage.includes('invalid email or password')) {
+          setMsg("Invalid email or password. Please check your credentials and try again.");
+        } else if (errorMessage.includes('email not confirmed') || 
+                   errorMessage.includes('confirm your email')) {
+          setMsg("Please confirm your email address before signing in. Check your inbox for a confirmation link.");
+        } else if (errorMessage.includes('too many requests') || 
+                   errorMessage.includes('rate limit')) {
+          setMsg("Too many sign in attempts. Please wait a few minutes before trying again.");
+        } else if (errorMessage.includes('network') || 
+                   errorMessage.includes('fetch')) {
+          setMsg("Network error. Please check your internet connection and try again.");
+        } else if (errorMessage.includes('timeout')) {
+          setMsg("Request timed out. Please try again.");
+        } else {
+          setMsg(error.message || "Sign in failed. Please try again.");
+        }
+        return;
       }
+      
+      if (!data?.user) {
+        setMsg("Sign in completed but user data is missing. Please try again.");
+        return;
+      }
+      
+      setMsg("Signed in successfully! Redirecting...");
+      
+      // Get the redirect URL from query params, or default to home
+      const redirectTo = searchParams.get("redirectedFrom") || "/";
+      
+      // Small delay to show success message
+      setTimeout(() => {
+        router.push(redirectTo);
+      }, 1000);
+      
     } catch (err: any) {
-      setMsg("An unexpected error occurred");
-      console.error("Sign in error:", err);
+      if (err?.message?.includes('fetch') || 
+          err?.message?.includes('network')) {
+        setMsg("Network error. Please check your internet connection and try again.");
+      } else {
+        setMsg("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
