@@ -1,4 +1,3 @@
-// app/page.tsx - Updated without header
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -12,7 +11,6 @@ export default function HomePage() {
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -57,80 +55,6 @@ export default function HomePage() {
       setError(e.message); 
     } finally { 
       setLoading(false); 
-    }
-  }
-
-  async function handleSaveReport() {
-    if (!previewHtml) {
-      setError("No report to save. Please generate a report first.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const supa = supabaseClient();
-      const { data: { user } } = await supa.auth.getUser();
-      
-      if (!user) {
-        setError("Please sign in to save reports");
-        return;
-      }
-
-      // Get user's personal workspace or create one
-      let { data: memberships } = await supa
-        .from('workspace_memberships')
-        .select('workspace_id, workspace:workspaces(name)')
-        .eq('user_id', user.id)
-        .eq('role', 'owner');
-
-      let workspaceId;
-      if (memberships && memberships.length > 0) {
-        // Use first owned workspace
-        workspaceId = memberships[0].workspace_id;
-      } else {
-        // Create personal workspace
-        const { data: newWorkspace } = await supa
-          .from('workspaces')
-          .insert({ name: 'My Reports' })
-          .select()
-          .single();
-        
-        if (newWorkspace) {
-          workspaceId = newWorkspace.id;
-        }
-      }
-
-      if (!workspaceId) {
-        throw new Error("Could not create workspace");
-      }
-
-      // Generate title from content
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = previewHtml;
-      const textContent = tempDiv.textContent || '';
-      const title = textContent.slice(0, 50).trim() || 'Untitled Report';
-
-      // Save the report
-      const { data: project, error } = await supa
-        .from('projects')
-        .insert({
-          workspace_id: workspaceId,
-          title,
-          content: previewHtml,
-          created_by: user.id
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Redirect to the saved report
-      window.location.href = `/reports/${project.id}`;
-
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -210,17 +134,9 @@ export default function HomePage() {
                 className="btn" 
                 onClick={gotoEditor} 
                 title="Open rich text editor"
-                disabled={!previewHtml}
+                disabled={!raw.trim() && !previewHtml}
               >
-                Rich Editor
-              </button>
-              <button 
-                className="btn btn-primary" 
-                onClick={handleSaveReport}
-                disabled={!previewHtml || saving}
-                title="Save report to your library"
-              >
-                {saving ? "Saving..." : "Save Report"}
+                Open Editor
               </button>
             </div>
           </div>
@@ -298,11 +214,11 @@ Or upload/capture images with text above to automatically extract content here.`
                 
                 <button 
                   className="w-full btn bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" 
-                  onClick={handleSaveReport} 
-                  disabled={!previewHtml || saving}
-                  title="Save to your reports library"
+                  onClick={gotoEditor} 
+                  disabled={!raw.trim() && !previewHtml}
+                  title="Open rich text editor"
                 >
-                  {saving ? "💾 Saving..." : "💾 Save Report"}
+                  📝 Open Editor
                 </button>
                 
                 <button 
@@ -390,10 +306,10 @@ Or upload/capture images with text above to automatically extract content here.`
                 </button>
                 <button 
                   className="btn btn-sm" 
-                  onClick={handleSaveReport} 
-                  disabled={!previewHtml || saving}
+                  onClick={gotoEditor} 
+                  disabled={!raw.trim() && !previewHtml}
                 >
-                  {saving ? "💾" : "💾 Save"}
+                  📝 Editor
                 </button>
                 <button 
                   className="btn btn-sm" 
@@ -428,6 +344,21 @@ Or upload/capture images with text above to automatically extract content here.`
               )}
             </div>
           </div>
+        </section>
+
+        {/* Call to Action */}
+        <section className="panel p-6 bg-gradient-to-r from-emerald-50 to-sky-50 text-center">
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Ready to Edit Your Report?</h3>
+          <p className="text-slate-600 mb-4">
+            Use the rich text editor to customize your report, add formatting, and save it to your library.
+          </p>
+          <button 
+            className="btn btn-primary" 
+            onClick={gotoEditor}
+            disabled={!raw.trim() && !previewHtml}
+          >
+            Open Report Editor
+          </button>
         </section>
       </div>
     </div>
