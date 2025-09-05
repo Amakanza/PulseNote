@@ -11,6 +11,147 @@ interface SignUpForm {
   organization: string;
 }
 
+// Network Debugger Component for troubleshooting
+const NetworkDebugger = () => {
+  const [testResults, setTestResults] = useState<any>({});
+  const [testing, setTesting] = useState(false);
+
+  const runTests = async () => {
+    setTesting(true);
+    const results: any = {};
+    
+    try {
+      // Test 1: Environment variables
+      results.envVars = {
+        success: !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'MISSING',
+        keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      };
+
+      // Test 2: Basic fetch to Supabase
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
+          headers: {
+            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+          }
+        });
+        results.basicFetch = {
+          success: response.ok,
+          status: response.status,
+          statusText: response.statusText
+        };
+      } else {
+        results.basicFetch = {
+          success: false,
+          error: 'Missing environment variables'
+        };
+      }
+
+      // Test 3: Supabase client
+      try {
+        const supa = supabaseClient();
+        results.clientInit = { success: true };
+        
+        // Test simple query
+        const { data, error } = await supa.from('profiles').select('id').limit(1);
+        results.simpleQuery = {
+          success: !error,
+          error: error?.message || null,
+          dataReceived: !!data
+        };
+      } catch (clientError: any) {
+        results.clientInit = {
+          success: false,
+          error: clientError.message
+        };
+      }
+
+      // Test 4: Auth endpoint specifically
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        try {
+          const authResponse = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`, {
+            method: 'POST',
+            headers: {
+              'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: 'test@example.com',
+              password: 'test123'
+            })
+          });
+          
+          // We expect this to fail with a specific error, but it should connect
+          results.authEndpoint = {
+            success: authResponse.status !== 0, // 0 means network error
+            status: authResponse.status,
+            reachable: true
+          };
+        } catch (authError: any) {
+          results.authEndpoint = {
+            success: false,
+            error: authError.message,
+            reachable: false
+          };
+        }
+      }
+
+    } catch (error: any) {
+      results.generalError = error.message;
+    }
+
+    setTestResults(results);
+    setTesting(false);
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <h3 className="font-semibold mb-2 text-yellow-800">🔧 Network Diagnostic Tool</h3>
+      <p className="text-sm text-yellow-700 mb-3">
+        If signup is failing, run this test to identify connection issues.
+      </p>
+      
+      <button 
+        onClick={runTests} 
+        disabled={testing}
+        className="btn btn-sm bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
+      >
+        {testing ? 'Testing...' : 'Run Connection Tests'}
+      </button>
+      
+      {Object.keys(testResults).length > 0 && (
+        <div className="mt-3 space-y-2 text-xs">
+          <div className="font-medium text-yellow-800">Test Results:</div>
+          {Object.entries(testResults).map(([test, result]: [string, any]) => (
+            <div key={test} className="flex justify-between items-start">
+              <span className="font-medium">{test}:</span>
+              <div className="text-right ml-2">
+                <span className={result.success ? 'text-green-600' : 'text-red-600'}>
+                  {result.success ? '✓ Pass' : '✗ Fail'}
+                </span>
+                {result.error && (
+                  <div className="text-red-600 text-xs mt-1">{result.error}</div>
+                )}
+                {result.status && (
+                  <div className="text-gray-600 text-xs">Status: {result.status}</div>
+                )}
+              </div>
+            </div>
+          ))}
+          
+          {testResults.envVars && (
+            <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+              <div><strong>Supabase URL:</strong> {testResults.envVars.url}</div>
+              <div><strong>API Key exists:</strong> {testResults.envVars.keyExists ? 'Yes' : 'No'}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function SignUp() {
   const [form, setForm] = useState<SignUpForm>({
     firstName: "",
@@ -21,6 +162,7 @@ export default function SignUp() {
   });
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showDebugger, setShowDebugger] = useState(false);
   const router = useRouter();
 
   // Generate username from initials
@@ -38,6 +180,8 @@ export default function SignUp() {
       let counter = 1;
 
       while (counter <= 999) {
+        console.log(`Checking username availability: ${username}`);
+        
         // Check if username exists
         const { data, error } = await supa
           .from("profiles")
@@ -51,6 +195,7 @@ export default function SignUp() {
         }
 
         if (!data || data.length === 0) {
+          console.log(`Username ${username} is available`);
           return username; // Username is available
         }
 
@@ -60,7 +205,9 @@ export default function SignUp() {
       }
 
       // Safety fallback
-      return baseUsername + Math.floor(Math.random() * 10000);
+      const fallback = baseUsername + Math.floor(Math.random() * 10000);
+      console.log(`Using random fallback username: ${fallback}`);
+      return fallback;
     } catch (error) {
       console.error("Username generation error:", error);
       return baseUsername;
@@ -87,8 +234,11 @@ export default function SignUp() {
   };
 
   async function handleSignUp() {
+    console.log("=== SIGNUP ATTEMPT STARTED ===");
+    
     const validationError = validateForm();
     if (validationError) {
+      console.log("Validation failed:", validationError);
       setMsg(validationError);
       return;
     }
@@ -97,28 +247,76 @@ export default function SignUp() {
     setMsg("");
 
     try {
+      console.log("Initializing Supabase client...");
       const supa = supabaseClient();
+      
+      // Test basic connectivity first
+      console.log("Testing Supabase connectivity...");
+      try {
+        const { data: connectionTest, error: connectionError } = await supa
+          .from('profiles')
+          .select('id')
+          .limit(1);
+        
+        console.log("Connection test result:", { 
+          success: !connectionError, 
+          error: connectionError?.message 
+        });
+        
+        if (connectionError && (
+          connectionError.message.includes('Failed to fetch') ||
+          connectionError.message.includes('NetworkError') ||
+          connectionError.message.includes('fetch')
+        )) {
+          throw new Error('Unable to connect to the authentication service. Please check your internet connection and try again.');
+        }
+      } catch (connErr: any) {
+        console.error("Connection test failed:", connErr);
+        if (connErr.message.includes('Unable to connect')) {
+          throw connErr;
+        }
+        // Continue if it's just a permission error (expected for unauthenticated requests)
+      }
       
       // Find existing organization if specified
       let organizationId = null;
       if (form.organization.trim()) {
-        const { data: existingOrg } = await supa
-          .from("organizations")
-          .select("id")
-          .eq("name", form.organization.trim())
-          .single();
+        console.log("Looking up organization:", form.organization.trim());
+        try {
+          const { data: existingOrg, error: orgError } = await supa
+            .from("organizations")
+            .select("id")
+            .eq("name", form.organization.trim())
+            .single();
 
-        if (existingOrg) {
-          organizationId = existingOrg.id;
+          console.log("Organization lookup result:", { existingOrg, orgError });
+          
+          if (existingOrg) {
+            organizationId = existingOrg.id;
+            console.log("Found existing organization with ID:", organizationId);
+          }
+        } catch (orgError: any) {
+          console.warn("Organization lookup failed (continuing without):", orgError.message);
+          // Continue without organization
         }
       }
 
       // Generate unique username
+      console.log("Generating username...");
       const baseUsername = generateUsername(form.firstName, form.lastName);
-      const uniqueUsername = await generateUniqueUsername(baseUsername, form.organization);
+      console.log("Base username:", baseUsername);
+      
+      let uniqueUsername;
+      try {
+        uniqueUsername = await generateUniqueUsername(baseUsername, form.organization);
+        console.log("Final username:", uniqueUsername);
+      } catch (usernameError: any) {
+        console.warn("Username generation failed, using fallback:", usernameError.message);
+        uniqueUsername = baseUsername + Math.floor(Math.random() * 1000);
+      }
 
-      // Sign up with Supabase Auth
-      const { data, error } = await supa.auth.signUp({
+      // Prepare signup data
+      const signupData = {
         email: form.email.toLowerCase().trim(),
         password: form.password,
         options: {
@@ -131,45 +329,138 @@ export default function SignUp() {
             organization_id: organizationId,
           },
         },
+      };
+
+      console.log("Signup data prepared:", {
+        email: signupData.email,
+        password: "[HIDDEN]",
+        metadata: signupData.options.data
+      });
+
+      // Attempt signup
+      console.log("Calling Supabase auth.signUp...");
+      const { data, error } = await supa.auth.signUp(signupData);
+
+      console.log("Supabase signup response:", {
+        hasData: !!data,
+        hasUser: !!data?.user,
+        hasSession: !!data?.session,
+        userConfirmed: data?.user?.email_confirmed_at ? true : false,
+        errorExists: !!error,
+        errorMessage: error?.message,
+        errorStatus: error?.status
       });
 
       if (error) {
-        console.error("Signup error:", error);
+        console.error("Signup error details:", {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+          fullError: error
+        });
         
         // Handle specific error types
-        if (error.message.includes("already registered")) {
-          setMsg("This email address is already registered. Try signing in instead.");
-        } else if (error.message.includes("rate limit")) {
+        const errorMessage = error.message?.toLowerCase() || '';
+        
+        if (errorMessage.includes('user already registered') || 
+            errorMessage.includes('already registered') ||
+            errorMessage.includes('email address already registered')) {
+          setMsg("This email address is already registered. Please try signing in instead.");
+        } else if (errorMessage.includes('invalid email') || 
+                   (errorMessage.includes('email') && errorMessage.includes('invalid'))) {
+          setMsg("Please enter a valid email address.");
+        } else if (errorMessage.includes('password') && 
+                   (errorMessage.includes('6') || errorMessage.includes('short'))) {
+          setMsg("Password must be at least 6 characters long.");
+        } else if (errorMessage.includes('rate limit') || 
+                   errorMessage.includes('too many') ||
+                   errorMessage.includes('rate exceeded')) {
           setMsg("Too many signup attempts. Please wait a few minutes and try again.");
-        } else if (error.message.includes("timeout") || error.message.includes("504")) {
-          setMsg("Server is currently busy. Please try again in a moment.");
-        } else if (error.message.includes("Database error saving new user")) {
-          setMsg("There was a technical issue creating your account. Please try again or contact support if the problem persists.");
+        } else if (errorMessage.includes('network') || 
+                   errorMessage.includes('fetch') ||
+                   errorMessage.includes('failed to fetch')) {
+          setMsg("Network error. Please check your internet connection and try again.");
+        } else if (errorMessage.includes('timeout') || 
+                   errorMessage.includes('504') ||
+                   error.status === 504) {
+          setMsg("The server is taking too long to respond. Please try again in a moment.");
+        } else if (errorMessage.includes('database') || 
+                   errorMessage.includes('constraint') ||
+                   errorMessage.includes('saving new user')) {
+          setMsg("There was a database error creating your account. This might be a temporary issue. Please try again or contact support if the problem persists.");
+        } else if (errorMessage.includes('forbidden') || 
+                   error.status === 403) {
+          setMsg("Account creation is currently restricted. Please contact support for assistance.");
+        } else if (errorMessage.includes('cors') || 
+                   errorMessage.includes('cross-origin')) {
+          setMsg("Configuration error. Please contact support to resolve this issue.");
+        } else if (!error.message || 
+                   error.message.trim() === '' || 
+                   error.message === '{}' ||
+                   error.message === 'null') {
+          setMsg("An unknown error occurred during signup. Please try again. If the problem persists, please contact support.");
+          console.error("Empty error message received. Full error object:", JSON.stringify(error, null, 2));
         } else {
           setMsg(`Signup failed: ${error.message}`);
         }
         return;
       }
 
-      if (data.user) {
-        // If user specified an existing organization, we'll handle invitation separately
-        // The trigger should have created the profile and personal organization
-        
-        if (!data.user.email_confirmed_at) {
-          setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account. Your username is: ${uniqueUsername}`);
-        } else {
-          setMsg(`Account created successfully! Your username is: ${uniqueUsername}. Redirecting...`);
-          setTimeout(() => {
-            router.push("/signin");
-          }, 3000);
-        }
+      // Validate response data
+      if (!data) {
+        console.error("No data returned from signup");
+        setMsg("Signup request completed but no response data received. Please try signing in or contact support.");
+        return;
       }
 
+      if (!data.user) {
+        console.error("No user in response data:", data);
+        setMsg("Account creation may have succeeded, but user data is missing. Please try signing in.");
+        return;
+      }
+
+      // Success!
+      console.log("Signup successful! User ID:", data.user.id);
+      console.log("Email confirmed:", !!data.user.email_confirmed_at);
+      
+      if (!data.user.email_confirmed_at) {
+        setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account before signing in. Your username is: ${uniqueUsername}`);
+      } else {
+        setMsg(`Account created successfully! Your username is: ${uniqueUsername}. Redirecting to sign in...`);
+        setTimeout(() => {
+          router.push("/signin");
+        }, 3000);
+      }
+
+      console.log("=== SIGNUP COMPLETED SUCCESSFULLY ===");
+
     } catch (err: any) {
-      console.error("Unexpected signup error:", err);
-      setMsg("An unexpected error occurred. Please try again or contact support.");
+      console.error("=== UNEXPECTED SIGNUP ERROR ===");
+      console.error("Error details:", {
+        message: err?.message,
+        name: err?.name,
+        stack: err?.stack,
+        cause: err?.cause,
+        fullError: err
+      });
+      
+      // Handle different types of unexpected errors
+      if (err?.message?.includes('fetch') || 
+          err?.message?.includes('network') ||
+          err?.message?.includes('NetworkError')) {
+        setMsg("Network error. Please check your internet connection and try again.");
+      } else if (err?.message?.includes('timeout') || 
+                 err?.message?.includes('aborted')) {
+        setMsg("Request timed out. Please try again.");
+      } else if (err?.message?.includes('Unable to connect')) {
+        setMsg(err.message); // Use our custom connection error message
+      } else {
+        const errorMsg = err?.message || err?.toString() || "An unexpected error occurred";
+        setMsg(`An unexpected error occurred: ${errorMsg}. Please try again or contact support if the problem persists.`);
+      }
     } finally {
       setLoading(false);
+      console.log("=== SIGNUP ATTEMPT FINISHED ===");
     }
   }
 
@@ -323,8 +614,20 @@ export default function SignUp() {
                 : "bg-red-50 text-red-700 border border-red-200"
             }`}>
               {msg}
+              {/* Show debugger option on errors */}
+              {!msg.includes("successfully") && !showDebugger && (
+                <button
+                  onClick={() => setShowDebugger(true)}
+                  className="ml-2 text-xs underline hover:no-underline"
+                >
+                  Show diagnostic tool
+                </button>
+              )}
             </div>
           )}
+
+          {/* Network Debugger */}
+          {showDebugger && <NetworkDebugger />}
         </div>
 
         {/* Sign In Link */}
@@ -343,7 +646,7 @@ export default function SignUp() {
         {/* Help Text */}
         <div className="text-center">
           <p className="text-xs text-slate-500">
-            Need help? Contact support for assistance
+            Having trouble? Contact support for assistance
           </p>
         </div>
       </div>
