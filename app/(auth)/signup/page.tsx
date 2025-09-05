@@ -112,7 +112,7 @@ export default function SignUp() {
       const baseUsername = generateUsername(form.firstName, form.lastName);
       const uniqueUsername = await generateUniqueUsername(baseUsername);
 
-      // Prepare signup data
+      // Prepare signup data with metadata
       const signupData = {
         email: form.email.toLowerCase().trim(),
         password: form.password,
@@ -128,14 +128,26 @@ export default function SignUp() {
         },
       };
 
+      console.log('Attempting signup with data:', { 
+        email: signupData.email, 
+        metadata: signupData.options.data 
+      });
+
       // Attempt signup
       const { data, error } = await supa.auth.signUp(signupData);
 
+      console.log('Signup response:', { data, error });
+
       if (error) {
+        console.error('Signup error details:', error);
+        
         // Handle specific error types with user-friendly messages
         const errorMessage = error.message?.toLowerCase() || '';
         
-        if (errorMessage.includes('user already registered') || errorMessage.includes('already registered')) {
+        if (errorMessage.includes('user already registered') || 
+            errorMessage.includes('already registered') ||
+            errorMessage.includes('duplicate') ||
+            errorMessage.includes('already exists')) {
           setMsg("This email address is already registered. Please try signing in instead.");
         } else if (errorMessage.includes('invalid email')) {
           setMsg("Please enter a valid email address.");
@@ -149,9 +161,11 @@ export default function SignUp() {
           setMsg("Request timed out. Please try again.");
         } else if (errorMessage.includes('database') || errorMessage.includes('saving new user')) {
           setMsg("There was a database error creating your account. Please try again or contact support.");
-        } else if (!error.message || error.message.trim() === '' || error.message === '{}') {
-          setMsg("An unknown error occurred during signup. Please try again or contact support.");
+        } else if (errorMessage.includes('confirm') || errorMessage.includes('verification')) {
+          setMsg("Please check your email for a verification link before signing in.");
         } else {
+          // Log the full error for debugging
+          console.error('Unhandled signup error:', error);
           setMsg(`Signup failed: ${error.message}`);
         }
         return;
@@ -162,17 +176,26 @@ export default function SignUp() {
         return;
       }
 
+      console.log('Signup successful, user created:', data.user.id);
+
       // Success handling
       if (!data.user.email_confirmed_at) {
         setMsg(`Account created successfully! Please check your email (${form.email}) to confirm your account. Your username is: ${uniqueUsername}`);
+        
+        // Optionally redirect to signin after a delay
+        setTimeout(() => {
+          router.push('/signin');
+        }, 5000);
       } else {
         setMsg(`Account created successfully! Your username is: ${uniqueUsername}. Redirecting...`);
         setTimeout(() => {
-          router.push("/signin");
-        }, 3000);
+          router.push('/signin');
+        }, 2000);
       }
 
     } catch (err: any) {
+      console.error('Unexpected signup error:', err);
+      
       if (err?.message?.includes('fetch') || err?.message?.includes('network')) {
         setMsg("Network error. Please check your internet connection and try again.");
       } else {
