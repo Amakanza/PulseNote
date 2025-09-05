@@ -10,14 +10,18 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, FileText, Copy } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Copy, Save } from "lucide-react";
+import { supabaseClient } from "@/lib/supabase/client";
 
 export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState("Feedback_Report");
   const [inputText, setInputText] = useState("");
   const [showInput, setShowInput] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const sessionFileName = sessionStorage.getItem("report:fileName");
@@ -26,6 +30,14 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
     // Load the original input text from session storage
     const savedInput = sessionStorage.getItem("report:input");
     if (savedInput) setInputText(savedInput);
+
+    // Get current user
+    const getUser = async () => {
+      const supa = supabaseClient();
+      const { data: { user } } = await supa.auth.getUser();
+      setUser(user);
+    };
+    getUser();
   }, []);
 
   const editor = useEditor({
@@ -54,6 +66,78 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
     sessionStorage.setItem("report:html", html);
     sessionStorage.setItem("report:fileName", fileName);
   }, [editor, fileName]);
+
+  const saveToLibrary = useCallback(async () => {
+    if (!user) {
+      alert("Please sign in to save reports");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const html = editor?.getHTML() || "";
+      const supa = supabaseClient();
+
+      // Get user's personal workspace or create one
+      let { data: memberships } = await supa
+        .from('workspace_memberships')
+        .select('workspace_id, workspace:workspaces(name)')
+        .eq('user_id', user.id)
+        .eq('role', 'owner');
+
+      let workspaceId;
+      if (memberships && memberships.length > 0) {
+        // Use first owned workspace
+        workspaceId = memberships[0].workspace_id;
+      } else {
+        // Create personal workspace
+        const { data: newWorkspace } = await supa
+          .from('workspaces')
+          .insert({ name: 'My Reports' })
+          .select()
+          .single();
+        
+        if (newWorkspace) {
+          workspaceId = newWorkspace.id;
+        }
+      }
+
+      if (!workspaceId) {
+        throw new Error("Could not create workspace");
+      }
+
+      // Generate title from content or use filename
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      const textContent = tempDiv.textContent || '';
+      const title = fileName || textContent.slice(0, 50).trim() || 'Untitled Report';
+
+      // Save the report
+      const { data: project, error } = await supa
+        .from('projects')
+        .insert({
+          workspace_id: workspaceId,
+          title,
+          content: html,
+          created_by: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+
+      // Optionally redirect to the saved report
+      // window.location.href = `/report/${project.id}`;
+
+    } catch (e: any) {
+      alert(e.message || "Failed to save report");
+    } finally {
+      setSaving(false);
+    }
+  }, [editor, fileName, user]);
 
   const exportHTML = useCallback(() => {
     const html = editor?.getHTML() || "";
@@ -187,8 +271,26 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
               onClick={saveSession}
               aria-label="Save to sessionStorage"
             >
-              Save
+              Save Draft
             </button>
+
+            {/* Save to Library Button */}
+            {user && (
+              <button 
+                className={`btn h-10 px-3 ${saveSuccess ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                onClick={saveToLibrary}
+                disabled={saving}
+                aria-label="Save to reports library"
+              >
+                {saving ? "Saving..." : saveSuccess ? "✓ Saved!" : (
+                  <>
+                    <Save className="w-4 h-4 mr-1" />
+                    Save Report
+                  </>
+                )}
+              </button>
+            )}
+
             <button 
               className="btn btn-primary h-10 px-3" 
               onClick={exportHTML}
@@ -231,6 +333,56 @@ export default function ReportEditor({ initialHTML }: { initialHTML: string }) {
           </div>
         </div>
       </div>
+
+      {/* Save to Library Call-to-Action */}
+      {user && !saveSuccess && (
+        <div className="panel p-6 bg-gradient-to-r from-blue-50 to-emerald-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-slate-900 mb-1">Save to Your Reports Library</h3>
+              <p className="text-sm text-slate-600">
+                Save this report to access it later and share with your team.
+              </p>
+            </div>
+            <button 
+              className="btn btn-primary flex items-center gap-2"
+              onClick={saveToLibrary}
+              disabled={saving}
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "Saving..." : "Save Report"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sign in prompt for non-authenticated users */}
+      {!user && (
+        <div className="panel p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-slate-900 mb-1">Sign in to Save Reports</h3>
+              <p className="text-sm text-slate-600">
+                Create an account to save your reports and access them from anywhere.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                className="btn"
+                onClick={() => window.location.href = '/signin'}
+              >
+                Sign In
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={() => window.location.href = '/signup'}
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Collapsible Original Input Section */}
       {inputText && (
