@@ -1,10 +1,10 @@
-// components/DebugAuthStatus.tsx - Temporary component to debug auth issues
+// components/DebugAuth.tsx - Fixed TypeScript error
 "use client";
 
 import { useState, useEffect } from 'react';
 import { supabaseClient } from '@/lib/supabase/client';
 
-export default function DebugAuthStatus() {
+export default function DebugAuth() {
   const [authState, setAuthState] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +33,9 @@ export default function DebugAuthStatus() {
         });
       } catch (error) {
         console.error('Auth check failed:', error);
-        setAuthState({ error: error.message });
+        // Fix: Handle unknown error type properly
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setAuthState({ error: errorMessage });
       } finally {
         setLoading(false);
       }
