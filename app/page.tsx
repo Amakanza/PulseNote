@@ -123,26 +123,20 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Create New Report</h1>
-              <p className="text-slate-600 mt-1">Transform clinical notes into professional reports</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button 
-                className="btn" 
-                onClick={gotoEditor} 
-                title="Open rich text editor"
-                disabled={!raw.trim() && !previewHtml}
-              >
-                Open Editor
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header 
+        title="Create New Report" 
+        subtitle="Transform clinical notes into professional reports"
+        actions={
+          <button 
+            className="btn" 
+            onClick={gotoEditor} 
+            title="Open rich text editor"
+            disabled={!raw.trim() && !previewHtml}
+          >
+            Open Editor
+          </button>
+        }
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Image Upload Section */}
