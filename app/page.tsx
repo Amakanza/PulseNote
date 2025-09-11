@@ -1,9 +1,9 @@
+// app/page.tsx - Clean version without debug
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
 import ImageUploadOCR from "../components/ImageUploadOCR";
-import DebugAuth from '@/components/DebugAuth';
 
 type Msg = { timestamp?: string; sender?: string; message: string };
 
@@ -122,7 +122,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DebugAuth />
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
