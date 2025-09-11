@@ -761,3 +761,29 @@ export default function SettingsPage() {
                                   className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {saving ? 'Deleting...' : 'Permanently Delete Account'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowDeleteConfirm(false);
+                                    setDeleteInput('');
+                                  }}
+                                  className="btn"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
