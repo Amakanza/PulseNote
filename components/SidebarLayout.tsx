@@ -1,4 +1,4 @@
-// components/SidebarLayout.tsx - Debug version
+// components/SidebarLayout.tsx - Fixed version
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -19,10 +19,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   
   const pathname = usePathname();
 
-  useEffect(() => {
-    checkUser();
-  }, [pathname]);
-
+  // Check for mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
@@ -38,35 +35,57 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const checkUser = async () => {
-    try {
-      console.log('🔍 Checking user authentication...');
-      console.log('📍 Current pathname:', pathname);
-      
-      const supa = supabaseClient();
-      const { data: { user }, error } = await supa.auth.getUser();
-      
-      console.log('👤 User data:', user);
-      console.log('❌ Auth error:', error);
-      
-      setUser(user);
-      
-      const authPages = ['/signin', '/signup', '/accept-invite'];
-      const isAuthPage = authPages.some(page => pathname.startsWith(page));
-      
-      console.log('🚪 Is auth page:', isAuthPage);
-      console.log('✅ Should show sidebar:', !!user && !isAuthPage);
-      
-      setShowSidebar(!!user && !isAuthPage);
-    } catch (error) {
-      console.error('💥 Error checking user:', error);
-      setUser(null);
-      setShowSidebar(false);
-    } finally {
-      setLoading(false);
-      console.log('✅ User check complete');
-    }
-  };
+  // Check user authentication
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        console.log('🔍 Checking user authentication...');
+        console.log('📍 Current pathname:', pathname);
+        
+        const supa = supabaseClient();
+        const { data: { user }, error } = await supa.auth.getUser();
+        
+        console.log('👤 User data:', user);
+        console.log('❌ Auth error:', error);
+        
+        setUser(user);
+        
+        // Define pages that don't need sidebar
+        const authPages = ['/signin', '/signup', '/accept-invite'];
+        const isAuthPage = authPages.some(page => pathname.startsWith(page));
+        
+        console.log('🚪 Is auth page:', isAuthPage);
+        
+        // Show sidebar if user is authenticated AND not on auth pages
+        const shouldShowSidebar = !!user && !isAuthPage;
+        console.log('✅ Should show sidebar:', shouldShowSidebar);
+        
+        setShowSidebar(shouldShowSidebar);
+      } catch (error) {
+        console.error('💥 Error checking user:', error);
+        setUser(null);
+        setShowSidebar(false);
+      } finally {
+        setLoading(false);
+        console.log('✅ User check complete');
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth state changes
+    const supa = supabaseClient();
+    const { data: { subscription } } = supa.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state changed:', event, !!session?.user);
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        checkUser();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [pathname]);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -81,6 +100,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     isMobile
   });
 
+  // Loading state
   if (loading) {
     return (
       <div className="flex h-screen">
@@ -94,6 +114,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     );
   }
 
+  // If no sidebar should be shown, render full width
   if (!showSidebar) {
     console.log('🚫 Not showing sidebar - rendering full width');
     return <div className="w-full h-screen">{children}</div>;
@@ -103,7 +124,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Debug Info */}
+      {/* Debug Info - Remove in production */}
       <div className="fixed top-4 left-4 z-50 bg-black text-white p-2 rounded text-xs">
         User: {user?.email || 'None'} | Sidebar: {showSidebar ? 'On' : 'Off'}
       </div>
@@ -118,6 +139,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Header */}
         {isMobile && (
           <div className="bg-white border-b border-slate-200 p-4 flex md:hidden">
             <div className="flex items-center justify-between w-full">
@@ -140,11 +162,13 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
           </div>
         )}
         
+        {/* Main Content Area */}
         <div className="flex-1 overflow-auto main-content">
           {children}
         </div>
       </div>
       
+      {/* Mobile Overlay */}
       {isMobile && !isCollapsed && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
