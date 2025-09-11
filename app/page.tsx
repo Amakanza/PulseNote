@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
 import ImageUploadOCR from "../components/ImageUploadOCR";
+import Header from "../components/Header";
 
 type Msg = { timestamp?: string; sender?: string; message: string };
 
