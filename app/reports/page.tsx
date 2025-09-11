@@ -89,7 +89,7 @@ export default function ReportsPage() {
             .filter((r: Report) => r.workspace?.name)
             .map((r: Report) => [r.workspace_id, { id: r.workspace_id, name: r.workspace?.name || 'Unknown' }])
         ).values()
-      );
+      ) as Array<{id: string; name: string}>;
       setWorkspaces(uniqueWorkspaces);
 
     } catch (err: any) {
