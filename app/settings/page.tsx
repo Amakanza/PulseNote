@@ -308,7 +308,7 @@ export default function SecuritySettingsPage() {
                   onClick={() => setShowBackupCodes(false)}
                   className="w-full btn btn-primary"
                 >
-                  I've Saved My Backup Codes
+                  I Saved My Backup Codes
                 </button>
               </div>
             </div>
