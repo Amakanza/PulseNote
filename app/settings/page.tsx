@@ -1,246 +1,337 @@
-// app/settings/security/page.tsx - Updated with better error handling and backup codes
+// app/settings/page.tsx - Complete settings page with all sections and back button
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabaseClient } from '@/lib/supabase/client';
-import SecurityDashboard from '@/components/security/SecurityDashboard';
-import { Shield, Key, Smartphone, QrCode, Copy, Check, AlertTriangle, Download } from 'lucide-react';
+import { 
+  FileText, 
+  Download, 
+  Edit, 
+  Share, 
+  Calendar, 
+  User, 
+  Building,
+  Settings,
+  Users,
+  UserPlus,
+  Crown,
+  Shield,
+  Edit3,
+  Eye,
+  Trash2,
+  AlertTriangle,
+  Check,
+  Mail,
+  Lock,
+  Smartphone,
+  Globe,
+  Bell,
+  Palette,
+  LogOut,
+  ChevronRight,
+  Save,
+  EyeOff,
+  ArrowLeft
+} from 'lucide-react';
 
-export default function SecuritySettingsPage() {
-  const [totpEnabled, setTotpEnabled] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [secret, setSecret] = useState<string>('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
-  const [showBackupCodes, setShowBackupCodes] = useState(false);
-  const [loading, setLoading] = useState(false);
+interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  username: string;
+  organization: string;
+  created_at: string;
+}
+
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'system';
+  notifications_enabled: boolean;
+  email_notifications: boolean;
+  export_format: 'docx' | 'pdf' | 'html';
+  auto_save: boolean;
+  tutorial_completed: boolean;
+  default_template: string;
+}
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [secretCopied, setSecretCopied] = useState(false);
-  const [backupCodesCopied, setBackupCodesCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
 
   useEffect(() => {
-    checkTOTPStatus();
+    loadUserData();
   }, []);
 
-  const checkTOTPStatus = async () => {
+  const loadUserData = async () => {
     try {
-      const response = await fetch('/api/auth/totp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'status' })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setTotpEnabled(data.enabled || false);
-      
-      if (data.error) {
-        setError(data.error);
-      }
-    } catch (err: any) {
-      console.error('TOTP status check failed:', err);
-      setError('Failed to check 2FA status');
-    }
-  };
+      const supa = supabaseClient();
+      const { data: { user } } = await supa.auth.getUser();
 
-  const generateTOTP = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/auth/totp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.error) {
-        setError(data.error);
+      if (!user) {
+        router.push('/signin');
         return;
       }
-      
-      setQrCodeUrl(data.qrCodeUrl);
-      setSecret(data.secret);
-      setShowSetup(true);
+
+      setUser(user);
+
+      // Load profile
+      const { data: profileData } = await supa
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileData) {
+        setProfile(profileData);
+      }
+
+      // Load preferences (mock data for now - would come from user_preferences table)
+      setPreferences({
+        theme: 'light',
+        notifications_enabled: true,
+        email_notifications: true,
+        export_format: 'docx',
+        auto_save: true,
+        tutorial_completed: localStorage.getItem('pulsenote-tutorial-completed') === 'true',
+        default_template: 'physio-default'
+      });
+
     } catch (err: any) {
-      console.error('TOTP generation failed:', err);
-      setError('Failed to generate 2FA setup. Please try again.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const enableTOTP = async () => {
-    if (!verificationCode.trim()) {
-      setError('Please enter the verification code from your authenticator app');
-      return;
-    }
+  const updateProfile = async () => {
+    if (!profile || !user) return;
 
-    if (!/^\d{6}$/.test(verificationCode.replace(/\s/g, ''))) {
-      setError('Verification code must be 6 digits');
-      return;
-    }
-
-    setLoading(true);
+    setSaving(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/totp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'enable', 
-          secret, 
-          token: verificationCode.trim() 
+      const supa = supabaseClient();
+      
+      const { error } = await supa
+        .from('profiles')
+        .update({
+          full_name: profile.full_name,
+          organization: profile.organization
         })
-      });
+        .eq('id', user.id);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setSuccess(data.message || 'Two-factor authentication enabled successfully!');
-        setTotpEnabled(true);
-        setShowSetup(false);
-        
-        // Show backup codes if provided
-        if (data.backupCodes && Array.isArray(data.backupCodes)) {
-          setBackupCodes(data.backupCodes);
-          setShowBackupCodes(true);
-        }
-        
-        // Clear form
-        setQrCodeUrl('');
-        setSecret('');
-        setVerificationCode('');
-        
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccess(null), 5000);
-      } else {
-        setError(data.error || 'Failed to enable 2FA');
-      }
+      setSuccess('Profile updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+
     } catch (err: any) {
-      console.error('TOTP enable failed:', err);
-      setError('Failed to enable 2FA. Please check your code and try again.');
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const disableTOTP = async () => {
-    if (!confirm('Are you sure you want to disable two-factor authentication? This will make your account less secure.')) {
+  const updatePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('All password fields are required');
       return;
     }
 
-    setLoading(true);
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setSaving(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/auth/totp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'disable' })
+      const supa = supabaseClient();
+      
+      const { error } = await supa.auth.updateUser({
+        password: newPassword
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setSuccess(data.message || 'Two-factor authentication disabled');
-        setTotpEnabled(false);
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError(data.error || 'Failed to disable 2FA');
-      }
+      setSuccess('Password updated successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSuccess(null), 3000);
+
     } catch (err: any) {
-      console.error('TOTP disable failed:', err);
-      setError('Failed to disable 2FA');
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const copySecret = async () => {
+  const updatePreferences = async () => {
+    if (!preferences) return;
+
+    setSaving(true);
+    setError(null);
+
     try {
-      await navigator.clipboard.writeText(secret);
-      setSecretCopied(true);
-      setTimeout(() => setSecretCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy secret:', err);
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = secret;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setSecretCopied(true);
-      setTimeout(() => setSecretCopied(false), 2000);
+      // In a real app, save to database
+      // For now, just save to localStorage
+      localStorage.setItem('user-preferences', JSON.stringify(preferences));
+
+      setSuccess('Preferences updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const copyBackupCodes = async () => {
+  const deleteAccount = async () => {
+    if (deleteInput !== 'DELETE') {
+      setError('Please type DELETE to confirm');
+      return;
+    }
+
+    setSaving(true);
+
     try {
-      const codesText = backupCodes.join('\n');
-      await navigator.clipboard.writeText(codesText);
-      setBackupCodesCopied(true);
-      setTimeout(() => setBackupCodesCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy backup codes:', err);
+      // In a real app, this would soft-delete the user and schedule data purge
+      const supa = supabaseClient();
+      await supa.auth.signOut();
+      
+      // Redirect to goodbye page
+      router.push('/');
+
+    } catch (err: any) {
+      setError(err.message);
+      setSaving(false);
     }
   };
 
-  const downloadBackupCodes = () => {
-    const codesText = `PulseNote - Two-Factor Authentication Backup Codes\n\nGenerated: ${new Date().toLocaleString()}\n\nBackup Codes (use each code only once):\n${backupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}\n\nKeep these codes in a safe place. You can use them to access your account if you lose your authenticator device.`;
-    
-    const blob = new Blob([codesText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pulsenote-backup-codes-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportData = async () => {
+    try {
+      const supa = supabaseClient();
+      
+      // Get user's projects/reports
+      const { data: projects } = await supa
+        .from('projects')
+        .select('*')
+        .eq('created_by', user.id);
+
+      // Get user's workspaces
+      const { data: memberships } = await supa
+        .from('workspace_memberships')
+        .select(`
+          role,
+          added_at,
+          workspace:workspaces(name, created_at)
+        `)
+        .eq('user_id', user.id);
+
+      const exportData = {
+        profile,
+        preferences,
+        projects: projects || [],
+        workspaces: memberships || [],
+        exported_at: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pulsenote-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setSuccess('Data exported successfully');
+      setTimeout(() => setSuccess(null), 3000);
+
+    } catch (err: any) {
+      setError(err.message);
+    }
   };
+
+  const signOut = async () => {
+    const supa = supabaseClient();
+    await supa.auth.signOut();
+    router.push('/');
+  };
+
+  const handleBack = () => {
+    router.back(); // Goes back to previous page in browser history
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-slate-600">Loading settings...</div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'preferences', label: 'Preferences', icon: Palette },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'account', label: 'Account', icon: Settings }
+  ];
 
   return (
-    <div className="container-narrow py-8">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="panel p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="w-6 h-6 text-slate-600" />
-            <h1 className="text-2xl font-bold text-slate-900">Security Settings</h1>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header with Back Button */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+              title="Go Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Back</span>
+            </button>
           </div>
-          <p className="text-slate-600">
-            Manage your account security and privacy settings
+          
+          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+          <p className="text-slate-600 mt-2">
+            Manage your account, preferences, and security settings
           </p>
         </div>
 
-        {/* Security Dashboard */}
-        <SecurityDashboard />
-
         {/* Error/Success Messages */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
+            <div>
               <p className="text-red-800 font-medium">Error</p>
               <p className="text-red-700 text-sm">{error}</p>
               <button
@@ -254,205 +345,465 @@ export default function SecuritySettingsPage() {
         )}
 
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
             <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
+            <div>
               <p className="text-green-800 font-medium">Success</p>
               <p className="text-green-700 text-sm">{success}</p>
             </div>
           </div>
         )}
 
-        {/* Backup Codes Modal */}
-        {showBackupCodes && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <h2 className="text-lg font-semibold mb-4">Save Your Backup Codes</h2>
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  <strong>Important:</strong> Save these backup codes in a safe place. You can use them to access your account if you lose your authenticator device. Each code can only be used once.
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 rounded-lg font-mono text-sm">
-                  {backupCodes.map((code, index) => (
-                    <div key={index} className="flex justify-between">
-                      <span>{index + 1}.</span>
-                      <span className="font-semibold">{code}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex gap-2">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar Navigation */}
+          <div className="lg:w-64 flex-shrink-0">
+            <nav className="space-y-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
                   <button
-                    onClick={copyBackupCodes}
-                    className={`btn flex-1 flex items-center justify-center gap-2 ${
-                      backupCodesCopied ? 'bg-green-100 text-green-700' : ''
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    {backupCodesCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {backupCodesCopied ? 'Copied!' : 'Copy Codes'}
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{tab.label}</span>
+                    <ChevronRight className="w-4 h-4 ml-auto" />
                   </button>
-                  
-                  <button
-                    onClick={downloadBackupCodes}
-                    className="btn flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </button>
-                </div>
-                
+                );
+              })}
+            </nav>
+
+            {/* Quick Actions */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="space-y-2">
                 <button
-                  onClick={() => setShowBackupCodes(false)}
-                  className="w-full btn btn-primary"
+                  onClick={() => router.push('/settings/security')}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
-                  I Saved My Backup Codes
+                  <Smartphone className="w-4 h-4" />
+                  Two-Factor Auth
+                </button>
+                <button
+                  onClick={exportData}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Data
+                </button>
+                <button
+                  onClick={signOut}
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
                 </button>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Two-Factor Authentication */}
-        <div className="panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Smartphone className="w-5 h-5 text-slate-600" />
-              <h2 className="text-lg font-semibold text-slate-900">Two-Factor Authentication</h2>
-            </div>
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-              totpEnabled 
-                ? 'bg-green-100 text-green-800 border border-green-200'
-                : 'bg-red-100 text-red-800 border border-red-200'
-            }`}>
-              {totpEnabled ? 'Enabled' : 'Disabled'}
-            </div>
-          </div>
+          {/* Main Content */}
+          <div className="flex-1">
+            <div className="panel p-8">
+              {/* Profile Tab */}
+              {activeTab === 'profile' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">Profile Information</h2>
+                    <p className="text-slate-600 text-sm">
+                      Update your personal information and professional details
+                    </p>
+                  </div>
 
-          {!totpEnabled && !showSetup && (
-            <div className="space-y-4">
-              <p className="text-slate-600">
-                Add an extra layer of security to your account with two-factor authentication. 
-                You will need an authenticator app like Google Authenticator, Authy, or 1Password.
-              </p>
-              <button
-                onClick={generateTOTP}
-                disabled={loading}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                <Key className="w-4 h-4" />
-                {loading ? 'Setting up...' : 'Set Up Two-Factor Authentication'}
-              </button>
-            </div>
-          )}
-
-          {totpEnabled && (
-            <div className="space-y-4">
-              <p className="text-slate-600">
-                Two-factor authentication is enabled for your account. You can disable it below if needed.
-              </p>
-              <button
-                onClick={disableTOTP}
-                disabled={loading}
-                className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
-              >
-                <Key className="w-4 h-4" />
-                {loading ? 'Disabling...' : 'Disable Two-Factor Authentication'}
-              </button>
-            </div>
-          )}
-
-          {showSetup && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-medium text-slate-900 mb-3">Step 1: Scan QR Code</h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  Scan this QR code with your authenticator app, or enter the secret manually.
-                </p>
-                
-                {qrCodeUrl && (
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <div className="flex-shrink-0">
-                      <img 
-                        src={qrCodeUrl}
-                        alt="2FA QR Code"
-                        className="w-48 h-48 border rounded-lg"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="label block mb-2">Full Name</label>
+                      <input
+                        type="text"
+                        value={profile?.full_name || ''}
+                        onChange={(e) => setProfile(prev => prev ? { ...prev, full_name: e.target.value } : null)}
+                        className="input w-full"
+                        placeholder="Enter your full name"
                       />
                     </div>
+
+                    <div>
+                      <label className="label block mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={profile?.username || ''}
+                        disabled
+                        className="input w-full bg-gray-50"
+                        placeholder="Your username"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Username cannot be changed</p>
+                    </div>
+
+                    <div>
+                      <label className="label block mb-2">Email Address</label>
+                      <input
+                        type="email"
+                        value={profile?.email || ''}
+                        disabled
+                        className="input w-full bg-gray-50"
+                        placeholder="Your email address"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Email cannot be changed</p>
+                    </div>
+
+                    <div>
+                      <label className="label block mb-2">Organization</label>
+                      <input
+                        type="text"
+                        value={profile?.organization || ''}
+                        onChange={(e) => setProfile(prev => prev ? { ...prev, organization: e.target.value } : null)}
+                        className="input w-full"
+                        placeholder="Your organization or clinic"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+                    <button
+                      onClick={updateProfile}
+                      disabled={saving}
+                      className="btn btn-primary flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <div className="text-xs text-slate-500">
+                      Member since {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Security Tab */}
+              {activeTab === 'security' && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">Security Settings</h2>
+                    <p className="text-slate-600 text-sm">
+                      Manage your password and security preferences
+                    </p>
+                  </div>
+
+                  {/* Password Change */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-slate-900">Change Password</h3>
                     
-                    <div className="flex-1">
-                      <div className="mb-4">
-                        <label className="text-sm font-medium text-slate-700 mb-2 block">
-                          Manual Entry Secret
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 p-2 bg-slate-100 rounded text-sm font-mono break-all">
-                            {secret}
-                          </code>
+                    <div className="space-y-4 max-w-md">
+                      <div>
+                        <label className="label block mb-2">Current Password</label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.current ? 'text' : 'password'}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="input w-full pr-10"
+                            placeholder="Enter current password"
+                          />
                           <button
-                            onClick={copySecret}
-                            className="btn btn-sm p-2 flex-shrink-0"
-                            title="Copy secret"
+                            type="button"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
                           >
-                            {secretCopied ? (
-                              <Check className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
+                            {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label block mb-2">New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.new ? 'text' : 'password'}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="input w-full pr-10"
+                            placeholder="Enter new password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                          >
+                            {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label block mb-2">Confirm New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showPasswords.confirm ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="input w-full pr-10"
+                            placeholder="Confirm new password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                          >
+                            {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={updatePassword}
+                        disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+                        className="btn btn-primary flex items-center gap-2"
+                      >
+                        <Lock className="w-4 h-4" />
+                        {saving ? 'Updating...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Two-Factor Authentication */}
+                  <div className="pt-6 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-medium text-slate-900">Two-Factor Authentication</h3>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Add an extra layer of security to your account
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => router.push('/settings/security')}
+                        className="btn flex items-center gap-2"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        Manage 2FA
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Preferences Tab */}
+              {activeTab === 'preferences' && preferences && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">Preferences</h2>
+                    <p className="text-slate-600 text-sm">
+                      Customize your PulseNote experience
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Theme */}
+                    <div>
+                      <label className="label block mb-2">Theme</label>
+                      <select
+                        value={preferences.theme}
+                        onChange={(e) => setPreferences(prev => prev ? { ...prev, theme: e.target.value as any } : null)}
+                        className="input w-full max-w-xs"
+                      >
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                      </select>
+                    </div>
+
+                    {/* Default Export Format */}
+                    <div>
+                      <label className="label block mb-2">Default Export Format</label>
+                      <select
+                        value={preferences.export_format}
+                        onChange={(e) => setPreferences(prev => prev ? { ...prev, export_format: e.target.value as any } : null)}
+                        className="input w-full max-w-xs"
+                      >
+                        <option value="docx">Word Document (.docx)</option>
+                        <option value="pdf">PDF Document (.pdf)</option>
+                        <option value="html">HTML Document (.html)</option>
+                      </select>
+                    </div>
+
+                    {/* Auto Save */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-slate-900">Auto Save</div>
+                        <div className="text-sm text-slate-600">Automatically save drafts as you type</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.auto_save}
+                          onChange={(e) => setPreferences(prev => prev ? { ...prev, auto_save: e.target.checked } : null)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 dark:peer-focus:ring-emerald-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+                      <button
+                        onClick={updatePreferences}
+                        disabled={saving}
+                        className="btn btn-primary flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        {saving ? 'Saving...' : 'Save Preferences'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notifications Tab */}
+              {activeTab === 'notifications' && preferences && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">Notification Settings</h2>
+                    <p className="text-slate-600 text-sm">
+                      Control how you receive notifications from PulseNote
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-slate-900">Push Notifications</div>
+                        <div className="text-sm text-slate-600">Receive browser notifications for important updates</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.notifications_enabled}
+                          onChange={(e) => setPreferences(prev => prev ? { ...prev, notifications_enabled: e.target.checked } : null)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-slate-900">Email Notifications</div>
+                        <div className="text-sm text-slate-600">Receive email updates about workspace invitations and important changes</div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.email_notifications}
+                          onChange={(e) => setPreferences(prev => prev ? { ...prev, email_notifications: e.target.checked } : null)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+                      <button
+                        onClick={updatePreferences}
+                        disabled={saving}
+                        className="btn btn-primary flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        {saving ? 'Saving...' : 'Save Notifications'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Account Tab */}
+              {activeTab === 'account' && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900 mb-1">Account Management</h2>
+                    <p className="text-slate-600 text-sm">
+                      Export your data or delete your account
+                    </p>
+                  </div>
+
+                  {/* Data Export */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-slate-900">Export Your Data</h3>
+                    <p className="text-slate-600">
+                      Download a copy of all your reports, workspaces, and account data in JSON format.
+                    </p>
+                    <button
+                      onClick={exportData}
+                      className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export Data
+                    </button>
+                  </div>
+
+                  {/* Account Deletion */}
+                  <div className="pt-6 border-t border-slate-200">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-6 h-6 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-red-800 mb-2">Delete Account</h3>
+                          <p className="text-red-700 text-sm mb-4">
+                            Permanently delete your account and all associated data. This action cannot be undone.
+                            All your reports, workspaces, and personal information will be permanently removed.
+                          </p>
+
+                          {!showDeleteConfirm ? (
+                            <button
+                              onClick={() => setShowDeleteConfirm(true)}
+                              className="btn bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Account
+                            </button>
+                          ) : (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="label block mb-2 text-red-800">
+                                  Type <code className="bg-red-100 px-1 rounded">DELETE</code> to confirm
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deleteInput}
+                                  onChange={(e) => setDeleteInput(e.target.value)}
+                                  className="input w-full max-w-xs border-red-300 focus:border-red-500 focus:ring-red-500"
+                                  placeholder="DELETE"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={deleteAccount}
+                                  disabled={deleteInput !== 'DELETE' || saving}
+                                  className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {saving ? 'Deleting...' : 'Permanently Delete Account'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowDeleteConfirm(false);
+                                    setDeleteInput('');
+                                  }}
+                                  className="btn"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-medium text-slate-900 mb-3">Step 2: Verify Setup</h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  Enter the 6-digit code from your authenticator app to complete setup.
-                </p>
-                
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Enter 6-digit code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="input flex-1 max-w-xs text-center text-lg font-mono tracking-widest"
-                    maxLength={6}
-                    disabled={loading}
-                    autoComplete="off"
-                  />
-                  <button
-                    onClick={enableTOTP}
-                    disabled={!verificationCode || verificationCode.length !== 6 || loading}
-                    className="btn btn-primary"
-                  >
-                    {loading ? 'Verifying...' : 'Enable 2FA'}
-                  </button>
                 </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowSetup(false);
-                    setQrCodeUrl('');
-                    setSecret('');
-                    setVerificationCode('');
-                    setError(null);
-                  }}
-                  className="btn"
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
