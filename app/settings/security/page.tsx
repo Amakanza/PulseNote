@@ -1,21 +1,26 @@
-// app/settings/security/page.tsx
+// app/settings/security/page.tsx - With functional back button
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabaseClient } from '@/lib/supabase/client';
 import SecurityDashboard from '@/components/security/SecurityDashboard';
-import { Shield, Key, Smartphone, QrCode, Copy, Check } from 'lucide-react';
+import { Shield, Key, Smartphone, QrCode, Copy, Check, AlertTriangle, Download, ArrowLeft } from 'lucide-react';
 
 export default function SecuritySettingsPage() {
+  const router = useRouter();
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [secretCopied, setSecretCopied] = useState(false);
+  const [backupCodesCopied, setBackupCodesCopied] = useState(false);
 
   useEffect(() => {
     checkTOTPStatus();
@@ -28,9 +33,19 @@ export default function SecuritySettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'status' })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
       const data = await response.json();
       setTotpEnabled(data.enabled || false);
+      
+      if (data.error) {
+        setError(data.error);
+      }
     } catch (err: any) {
+      console.error('TOTP status check failed:', err);
       setError('Failed to check 2FA status');
     }
   };
@@ -46,17 +61,23 @@ export default function SecuritySettingsPage() {
         body: JSON.stringify({ action: 'generate' })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data = await response.json();
       
-      if (response.ok) {
-        setQrCodeUrl(data.qrCodeUrl);
-        setSecret(data.secret);
-        setShowSetup(true);
-      } else {
+      if (data.error) {
         setError(data.error);
+        return;
       }
+      
+      setQrCodeUrl(data.qrCodeUrl);
+      setSecret(data.secret);
+      setShowSetup(true);
     } catch (err: any) {
-      setError('Failed to generate 2FA setup');
+      console.error('TOTP generation failed:', err);
+      setError('Failed to generate 2FA setup. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -64,7 +85,12 @@ export default function SecuritySettingsPage() {
 
   const enableTOTP = async () => {
     if (!verificationCode.trim()) {
-      setError('Please enter the verification code');
+      setError('Please enter the verification code from your authenticator app');
+      return;
+    }
+
+    if (!/^\d{6}$/.test(verificationCode.replace(/\s/g, ''))) {
+      setError('Verification code must be 6 digits');
       return;
     }
 
@@ -82,20 +108,36 @@ export default function SecuritySettingsPage() {
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data = await response.json();
       
-      if (response.ok && data.success) {
-        setSuccess('Two-factor authentication enabled successfully!');
+      if (data.success) {
+        setSuccess(data.message || 'Two-factor authentication enabled successfully!');
         setTotpEnabled(true);
         setShowSetup(false);
+        
+        // Show backup codes if provided
+        if (data.backupCodes && Array.isArray(data.backupCodes)) {
+          setBackupCodes(data.backupCodes);
+          setShowBackupCodes(true);
+        }
+        
+        // Clear form
         setQrCodeUrl('');
         setSecret('');
         setVerificationCode('');
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setSuccess(null), 5000);
       } else {
         setError(data.error || 'Failed to enable 2FA');
       }
     } catch (err: any) {
-      setError('Failed to enable 2FA');
+      console.error('TOTP enable failed:', err);
+      setError('Failed to enable 2FA. Please check your code and try again.');
     } finally {
       setLoading(false);
     }
@@ -116,15 +158,21 @@ export default function SecuritySettingsPage() {
         body: JSON.stringify({ action: 'disable' })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data = await response.json();
       
-      if (response.ok && data.success) {
-        setSuccess('Two-factor authentication disabled');
+      if (data.success) {
+        setSuccess(data.message || 'Two-factor authentication disabled');
         setTotpEnabled(false);
+        setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(data.error || 'Failed to disable 2FA');
       }
     } catch (err: any) {
+      console.error('TOTP disable failed:', err);
       setError('Failed to disable 2FA');
     } finally {
       setLoading(false);
@@ -138,14 +186,61 @@ export default function SecuritySettingsPage() {
       setTimeout(() => setSecretCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy secret:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = secret;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setSecretCopied(true);
+      setTimeout(() => setSecretCopied(false), 2000);
     }
+  };
+
+  const copyBackupCodes = async () => {
+    try {
+      const codesText = backupCodes.join('\n');
+      await navigator.clipboard.writeText(codesText);
+      setBackupCodesCopied(true);
+      setTimeout(() => setBackupCodesCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy backup codes:', err);
+    }
+  };
+
+  const downloadBackupCodes = () => {
+    const codesText = `PulseNote - Two-Factor Authentication Backup Codes\n\nGenerated: ${new Date().toLocaleString()}\n\nBackup Codes (use each code only once):\n${backupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n')}\n\nKeep these codes in a safe place. You can use them to access your account if you lose your authenticator device.`;
+    
+    const blob = new Blob([codesText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pulsenote-backup-codes-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBack = () => {
+    router.push('/settings');
   };
 
   return (
     <div className="container-narrow py-8">
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="panel p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+              title="Back to Settings"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Back to Settings</span>
+            </button>
+          </div>
+          
           <div className="flex items-center gap-3 mb-2">
             <Shield className="w-6 h-6 text-slate-600" />
             <h1 className="text-2xl font-bold text-slate-900">Security Settings</h1>
@@ -157,6 +252,85 @@ export default function SecuritySettingsPage() {
 
         {/* Security Dashboard */}
         <SecurityDashboard />
+
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-red-800 font-medium">Error</p>
+              <p className="text-red-700 text-sm">{error}</p>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800 text-xs underline mt-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+            <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-green-800 font-medium">Success</p>
+              <p className="text-green-700 text-sm">{success}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Backup Codes Modal */}
+        {showBackupCodes && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h2 className="text-lg font-semibold mb-4">Save Your Backup Codes</h2>
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Important:</strong> Save these backup codes in a safe place. You can use them to access your account if you lose your authenticator device. Each code can only be used once.
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 rounded-lg font-mono text-sm">
+                  {backupCodes.map((code, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>{index + 1}.</span>
+                      <span className="font-semibold">{code}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyBackupCodes}
+                    className={`btn flex-1 flex items-center justify-center gap-2 ${
+                      backupCodesCopied ? 'bg-green-100 text-green-700' : ''
+                    }`}
+                  >
+                    {backupCodesCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {backupCodesCopied ? 'Copied!' : 'Copy Codes'}
+                  </button>
+                  
+                  <button
+                    onClick={downloadBackupCodes}
+                    className="btn flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                </div>
+                
+                <button
+                  onClick={() => setShowBackupCodes(false)}
+                  className="w-full btn btn-primary"
+                >
+                  I have Saved My Backup Codes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Two-Factor Authentication */}
         <div className="panel p-6">
@@ -174,24 +348,11 @@ export default function SecuritySettingsPage() {
             </div>
           </div>
 
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              {success}
-            </div>
-          )}
-
           {!totpEnabled && !showSetup && (
             <div className="space-y-4">
               <p className="text-slate-600">
                 Add an extra layer of security to your account with two-factor authentication. 
-                You will need an authenticator app like Google Authenticator or Authy.
+                You will need an authenticator app like Google Authenticator, Authy, or 1Password.
               </p>
               <button
                 onClick={generateTOTP}
@@ -232,7 +393,7 @@ export default function SecuritySettingsPage() {
                   <div className="flex flex-col md:flex-row gap-6">
                     <div className="flex-shrink-0">
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}`}
+                        src={qrCodeUrl}
                         alt="2FA QR Code"
                         className="w-48 h-48 border rounded-lg"
                       />
@@ -277,9 +438,10 @@ export default function SecuritySettingsPage() {
                     placeholder="Enter 6-digit code"
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="input flex-1 max-w-xs"
+                    className="input flex-1 max-w-xs text-center text-lg font-mono tracking-widest"
                     maxLength={6}
                     disabled={loading}
+                    autoComplete="off"
                   />
                   <button
                     onClick={enableTOTP}
@@ -298,6 +460,7 @@ export default function SecuritySettingsPage() {
                     setQrCodeUrl('');
                     setSecret('');
                     setVerificationCode('');
+                    setError(null);
                   }}
                   className="btn"
                   disabled={loading}
