@@ -23,10 +23,12 @@
     "@tiptap/extension-table-row": "^2.1.13",
     "@tiptap/react": "^2.1.13",
     "@tiptap/starter-kit": "^2.1.13",
+    "docxtemplater": "^3.44.0",
     "html-to-docx": "^1.8.0",
     "lucide-react": "^0.263.1",
     "next": "14.2.32",
     "otplib": "^12.0.1",
+    "pizzip": "^3.1.6",
     "qrcode": "^1.5.3",
     "react": "^18",
     "react-dom": "^18"
@@ -34,6 +36,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.10",
     "@types/node": "^20",
+    "@types/pizzip": "^3.0.4",
     "@types/qrcode": "^1.5.2",
     "@types/react": "^18",
     "@types/react-dom": "^18",
