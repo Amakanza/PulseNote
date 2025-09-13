@@ -72,7 +72,7 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
 
       setCurrentUserRole(membership.role);
 
-      // Load templates
+      // Load templates - Fixed the query to properly join with profiles
       const { data: templatesData, error: templatesError } = await supa
         .from('templates')
         .select(`
@@ -81,7 +81,7 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
           placeholders,
           created_at,
           created_by,
-          creator:profiles(full_name)
+          profiles!templates_created_by_fkey(full_name)
         `)
         .eq('workspace_id', workspaceId)
         .eq('is_active', true)
@@ -89,7 +89,17 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
 
       if (templatesError) throw templatesError;
 
-      setTemplates(templatesData || []);
+      // Transform the data to match our Template interface
+      const transformedTemplates = (templatesData || []).map(template => ({
+        id: template.id,
+        name: template.name,
+        placeholders: template.placeholders,
+        created_at: template.created_at,
+        created_by: template.created_by,
+        creator: template.profiles ? { full_name: template.profiles.full_name } : undefined
+      }));
+
+      setTemplates(transformedTemplates);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -343,7 +353,7 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
             </div>
             <div>
               <div className="font-medium mb-1">2. Upload Template</div>
-              <div>Upload your .docx file and we will detect placeholders automatically</div>
+              <div>Upload your .docx file and we&apos;ll detect placeholders automatically</div>
             </div>
             <div>
               <div className="font-medium mb-1">3. Generate Documents</div>
