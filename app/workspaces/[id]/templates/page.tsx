@@ -90,13 +90,13 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
       if (templatesError) throw templatesError;
 
       // Transform the data to match our Template interface
-      const transformedTemplates = (templatesData || []).map(template => ({
+      const transformedTemplates = (templatesData || []).map((template: any) => ({
         id: template.id,
         name: template.name,
         placeholders: template.placeholders,
         created_at: template.created_at,
         created_by: template.created_by,
-        creator: template.profiles ? { full_name: template.profiles.full_name } : undefined
+        creator: template.profiles ? { full_name: (template.profiles as any).full_name || template.profiles[0]?.full_name } : undefined
       }));
 
       setTemplates(transformedTemplates);
