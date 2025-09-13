@@ -343,7 +343,7 @@ export default function WorkspaceTemplates({ params }: WorkspaceTemplatesProps) 
             </div>
             <div>
               <div className="font-medium mb-1">2. Upload Template</div>
-              <div>Upload your .docx file and we'll detect placeholders automatically</div>
+              <div>Upload your .docx file and we will detect placeholders automatically</div>
             </div>
             <div>
               <div className="font-medium mb-1">3. Generate Documents</div>
