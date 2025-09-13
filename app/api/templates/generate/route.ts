@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     });
 
     // Return as downloadable file
-    return new NextResponse(generatedBuffer, {
+    return new NextResponse(new Uint8Array(generatedBuffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${filename || 'generated-report'}.docx"`
