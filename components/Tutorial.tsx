@@ -68,6 +68,8 @@ const Tutorial: React.FC<TutorialProps> = ({
   useEffect(() => {
     if (hasSeenTutorial || isActive || steps.length === 0) return;
 
+    const timeoutsRef = contextualTimeouts.current;
+
     const setupContextualTriggers = () => {
       steps.forEach((step, index) => {
         if (!step.contextualTrigger) return;
@@ -102,14 +104,14 @@ const Tutorial: React.FC<TutorialProps> = ({
             }
           }, step.contextualTrigger?.delay || 1500);
 
-          contextualTimeouts.current.set(step.target, timeoutId);
+          timeoutsRef.set(step.target, timeoutId);
         };
 
         const clearTrigger = () => {
-          const timeoutId = contextualTimeouts.current.get(step.target);
+          const timeoutId = timeoutsRef.get(step.target);
           if (timeoutId) {
             clearTimeout(timeoutId);
-            contextualTimeouts.current.delete(step.target);
+            timeoutsRef.delete(step.target);
           }
         };
 
@@ -141,8 +143,8 @@ const Tutorial: React.FC<TutorialProps> = ({
 
     return () => {
       clearTimeout(timer);
-      contextualTimeouts.current.forEach(clearTimeout);
-      contextualTimeouts.current.clear();
+      timeoutsRef.forEach(clearTimeout);
+      timeoutsRef.clear();
       
       document.querySelectorAll('[data-tutorial-target]').forEach(element => {
         const target = element.getAttribute('data-tutorial-target');
