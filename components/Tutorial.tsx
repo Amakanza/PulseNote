@@ -1,4 +1,4 @@
-// components/Tutorial.tsx - Responsive and mobile-friendly version
+// components/Tutorial.tsx - Clean responsive tutorial component
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
 
@@ -254,16 +254,16 @@ const Tutorial: React.FC<TutorialProps> = ({
     }
   }, [isActive, currentStep, steps]);
 
-  const getTooltipPosition = () => {
-    if (!highlightedElement) return { top: 50, left: 50, position: 'bottom' };
+  const getTooltipPosition = (): { top: number; left: number; position: string; width: number } => {
+    if (!highlightedElement) return { top: 50, left: 50, position: 'bottom', width: 320 };
     
     const rect = highlightedElement.getBoundingClientRect();
     const tooltipWidth = isMobile ? Math.min(280, window.innerWidth - 40) : 320;
-    const tooltipHeight = 200; // Estimated height
+    const tooltipHeight = 200;
     const padding = 20;
     
     let position = steps[currentStep]?.position || 'bottom';
-    let top, left;
+    let top: number, left: number;
     
     // Calculate initial position
     switch (position) {
@@ -363,7 +363,7 @@ const Tutorial: React.FC<TutorialProps> = ({
     return () => {
       delete (window as any).startPulseNoteTutorial;
     };
-  }, [steps]);
+  }, []);
 
   if (!isActive || steps.length === 0) return null;
 
