@@ -1,10 +1,12 @@
-// app/page.tsx - Clean version without debug
+// app/page.tsx - Updated with working tutorial
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
 import ImageUploadOCR from "../components/ImageUploadOCR";
 import Header from "../components/Header";
+import Tutorial from "../components/Tutorial";
+import { homePageTutorialSteps } from "../lib/tutorialSteps";
 
 type Msg = { timestamp?: string; sender?: string; message: string };
 
@@ -118,30 +120,61 @@ export default function HomePage() {
     }
   };
 
+  // Tutorial handlers
+  const handleTutorialComplete = () => {
+    console.log('Home page tutorial completed!');
+  };
+
+  const handleTutorialSkip = () => {
+    console.log('Home page tutorial skipped');
+  };
+
   const lines = raw ? raw.split(/\r?\n/).length : 0;
   const chars = raw.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Tutorial Component */}
+      <Tutorial
+        steps={homePageTutorialSteps}
+        onComplete={handleTutorialComplete}
+        onSkip={handleTutorialSkip}
+        showOnFirstVisit={true}
+        autoStart={false}
+      />
+
       {/* Header */}
       <Header 
         title="Create New Report" 
         subtitle="Transform clinical notes into professional reports"
         actions={
-          <button 
-            className="btn" 
-            onClick={gotoEditor} 
-            title="Open rich text editor"
-            disabled={!raw.trim() && !previewHtml}
-          >
-            Open Editor
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              className="btn btn-sm" 
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
+                  (window as any).startPulseNoteTutorial();
+                }
+              }}
+              title="Take the tour"
+            >
+              📚 Tutorial
+            </button>
+            <button 
+              className="btn" 
+              onClick={gotoEditor} 
+              title="Open rich text editor"
+              disabled={!raw.trim() && !previewHtml}
+            >
+              Open Editor
+            </button>
+          </div>
         }
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Image Upload Section */}
-        <section className="panel p-6">
+        <section className="panel p-6" id="image-upload-section">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-slate-700 mb-2">Upload or Capture Images</h3>
             <p className="text-sm text-slate-600">Upload images containing text or capture photos to automatically extract text content.</p>
@@ -156,7 +189,7 @@ export default function HomePage() {
         <section className="panel overflow-hidden">
           <div className="grid lg:grid-cols-12 gap-0 min-h-[70vh]">
             {/* Input Column */}
-            <div className="lg:col-span-5 border-r border-slate-200">
+            <div className="lg:col-span-5 border-r border-slate-200" id="text-input-area">
               <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
                 <div className="text-sm font-semibold text-slate-700">Clinical Notes Input</div>
                 <div className="text-xs text-slate-500">{lines} lines • {chars} chars</div>
@@ -164,10 +197,10 @@ export default function HomePage() {
               <div className="p-4 h-full">
                 <textarea
                   className="w-full h-[calc(70vh-80px)] p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder={`[12/08/24, 09:14] Patient: Experiencing pain in lower back...
+                  placeholder="[12/08/24, 09:14] Patient: Experiencing pain in lower back...
 [12/08/24, 09:15] Physio: ROM assessment shows limited flexion...
 
-Or upload/capture images with text above to automatically extract content here.`}
+Or upload/capture images with text above to automatically extract content here."
                   value={raw}
                   onChange={(e) => setRaw(e.target.value)}
                 />
@@ -204,6 +237,7 @@ Or upload/capture images with text above to automatically extract content here.`
                   onClick={handleAnalyze} 
                   disabled={!raw.trim() || loading}
                   title="Generate physiotherapy report"
+                  id="analyze-button"
                 >
                   {loading ? "⏳ Analyzing..." : "▶️ Generate Report"}
                 </button>
@@ -222,6 +256,7 @@ Or upload/capture images with text above to automatically extract content here.`
                   onClick={exportDocx} 
                   disabled={!previewHtml}
                   title="Download Word document"
+                  id="export-docx-button"
                 >
                   📄 Export DOCX
                 </button>
@@ -231,6 +266,7 @@ Or upload/capture images with text above to automatically extract content here.`
                   onClick={handleClear} 
                   disabled={!raw && !previewHtml}
                   title="Clear all data"
+                  id="clear-button"
                 >
                   🗑️ Clear All
                 </button>
@@ -249,7 +285,7 @@ Or upload/capture images with text above to automatically extract content here.`
                 <div className="text-sm font-semibold text-slate-700">Report Preview</div>
                 <div className="text-xs text-slate-500">{previewHtml ? "✅ Ready" : "⏳ Pending"}</div>
               </div>
-              <div className="p-4 h-[calc(70vh-60px)] overflow-y-auto">
+              <div className="p-4 h-[calc(70vh-60px)] overflow-y-auto" id="draft-preview">
                 {!previewHtml ? (
                   <div className="flex items-center justify-center h-full text-slate-400 text-center">
                     <div>
