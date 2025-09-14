@@ -1,12 +1,12 @@
-// app/page.tsx - Updated with working tutorial
+// app/page.tsx - Enhanced with voice dictation
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabaseClient } from "@/lib/supabase/client";
 import ImageUploadOCR from "../components/ImageUploadOCR";
+import VoiceRecorder from "../components/VoiceRecorder";
 import Header from "../components/Header";
-import Tutorial from "../components/Tutorial";
-import { homePageTutorialSteps } from "../lib/tutorialSteps";
+import { Mic, FileText, Upload, Volume2 } from "lucide-react";
 
 type Msg = { timestamp?: string; sender?: string; message: string };
 
@@ -15,6 +15,7 @@ export default function HomePage() {
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'text' | 'voice' | 'image'>('text');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -83,6 +84,17 @@ export default function HomePage() {
     setTimeout(handleAnalyze, 50);
   }
 
+  // Handle text extraction from voice or image
+  const handleTextExtracted = (extractedText: string) => {
+    if (extractedText.trim()) {
+      const newText = raw.trim() ? `${raw}\n\n${extractedText}` : extractedText;
+      setRaw(newText);
+      setTimeout(() => {
+        handleAnalyze();
+      }, 100);
+    }
+  };
+
   async function gotoEditor() {
     if (!previewHtml && raw.trim()) await handleAnalyze();
     window.location.href = "/report";
@@ -109,113 +121,91 @@ export default function HomePage() {
     }
   }
 
-  // Handle OCR text extraction
-  const handleTextExtracted = (extractedText: string) => {
-    if (extractedText.trim()) {
-      const newText = raw.trim() ? `${raw}\n\n${extractedText}` : extractedText;
-      setRaw(newText);
-      setTimeout(() => {
-        handleAnalyze();
-      }, 100);
-    }
-  };
-
-  // Tutorial handlers
-  const handleTutorialComplete = () => {
-    console.log('Home page tutorial completed!');
-  };
-
-  const handleTutorialSkip = () => {
-    console.log('Home page tutorial skipped');
-  };
-
   const lines = raw ? raw.split(/\r?\n/).length : 0;
   const chars = raw.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Tutorial Component */}
-      <Tutorial
-        steps={homePageTutorialSteps}
-        onComplete={handleTutorialComplete}
-        onSkip={handleTutorialSkip}
-        showOnFirstVisit={true}
-        autoStart={false}
-      />
-
       {/* Header */}
       <Header 
         title="Create New Report" 
-        subtitle="Transform clinical notes into professional reports"
+        subtitle="Transform clinical notes into professional reports using text, voice, or images"
         actions={
-          <div className="flex items-center gap-2">
-            <button 
-              className="btn btn-sm" 
-              onClick={() => {
-                if (typeof window !== 'undefined' && (window as any).startPulseNoteTutorial) {
-                  (window as any).startPulseNoteTutorial();
-                }
-              }}
-              title="Take the tour"
-            >
-              📚 Tutorial
-            </button>
-            <button 
-              className="btn" 
-              onClick={gotoEditor} 
-              title="Open rich text editor"
-              disabled={!raw.trim() && !previewHtml}
-            >
-              Open Editor
-            </button>
-          </div>
+          <button 
+            className="btn" 
+            onClick={gotoEditor} 
+            title="Open rich text editor"
+            disabled={!raw.trim() && !previewHtml}
+          >
+            Open Editor
+          </button>
         }
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Image Upload Section */}
-        <section className="panel p-6" id="image-upload-section">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">Upload or Capture Images</h3>
-            <p className="text-sm text-slate-600">Upload images containing text or capture photos to automatically extract text content.</p>
+        {/* Input Method Tabs */}
+        <section className="panel p-6">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">Choose Input Method</h3>
+            <p className="text-sm text-slate-600">Select how you'd like to input your clinical notes</p>
           </div>
-          <ImageUploadOCR 
-            onTextExtracted={handleTextExtracted} 
-            disabled={loading}
-          />
-        </section>
+          
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button
+              onClick={() => setActiveTab('text')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'text'
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Text Input
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('voice')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'voice'
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Mic className="w-4 h-4" />
+              Voice Recording
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('image')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'image'
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Upload className="w-4 h-4" />
+              Image Upload
+            </button>
+          </div>
 
-        {/* Main Workspace */}
-        <section className="panel overflow-hidden">
-          <div className="grid lg:grid-cols-12 gap-0 min-h-[70vh]">
-            {/* Input Column */}
-            <div className="lg:col-span-5 border-r border-slate-200" id="text-input-area">
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-                <div className="text-sm font-semibold text-slate-700">Clinical Notes Input</div>
+          {/* Text Input Tab */}
+          {activeTab === 'text' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">Clinical Notes Input</label>
                 <div className="text-xs text-slate-500">{lines} lines • {chars} chars</div>
               </div>
-              <div className="p-4 h-full">
-                <textarea
-                  className="w-full h-[calc(70vh-80px)] p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="[12/08/24, 09:14] Patient: Experiencing pain in lower back...
+              <textarea
+                id="text-input-area"
+                className="w-full h-64 p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder={`[12/08/24, 09:14] Patient: Experiencing pain in lower back...
 [12/08/24, 09:15] Physio: ROM assessment shows limited flexion...
 
-Or upload/capture images with text above to automatically extract content here."
-                  value={raw}
-                  onChange={(e) => setRaw(e.target.value)}
-                />
-                <p className="text-xs mt-2 text-slate-500">
-                  Tip: Paste clinical notes, upload images with text, or type patient observations.
-                </p>
-              </div>
-            </div>
-
-            {/* Actions Column */}
-            <div className="lg:col-span-2 border-r border-slate-200 bg-emerald-50/30">
-              <div className="flex items-center justify-center px-4 py-3 border-b bg-emerald-100/50">
-                <div className="text-sm font-semibold text-slate-700">Actions</div>
-              </div>
-              <div className="flex flex-col items-center justify-center h-[calc(70vh-60px)] p-4 space-y-3">
+Type or paste your clinical notes here.`}
+                value={raw}
+                onChange={(e) => setRaw(e.target.value)}
+              />
+              <div className="flex gap-3">
                 <input 
                   ref={fileInputRef} 
                   type="file" 
@@ -223,21 +213,70 @@ Or upload/capture images with text above to automatically extract content here."
                   className="hidden" 
                   onChange={handleFileChange} 
                 />
-                
                 <button 
-                  className="w-full btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300" 
+                  className="btn bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300" 
                   onClick={handleUploadClick} 
                   title="Upload text file"
                 >
                   📁 Upload File
                 </button>
-                
+              </div>
+            </div>
+          )}
+
+          {/* Voice Recording Tab */}
+          {activeTab === 'voice' && (
+            <div>
+              <VoiceRecorder 
+                onTextExtracted={handleTextExtracted}
+                disabled={loading}
+                maxDuration={600} // 10 minutes
+              />
+            </div>
+          )}
+
+          {/* Image Upload Tab */}
+          {activeTab === 'image' && (
+            <div>
+              <ImageUploadOCR 
+                onTextExtracted={handleTextExtracted} 
+                disabled={loading}
+              />
+            </div>
+          )}
+        </section>
+
+        {/* Current Input Display */}
+        {raw.trim() && (
+          <section className="panel p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-700">Current Input</h3>
+              <div className="text-xs text-slate-500">{lines} lines • {chars} chars</div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-lg max-h-48 overflow-y-auto">
+              <pre className="text-sm text-slate-700 whitespace-pre-wrap font-mono">
+                {raw.substring(0, 500)}
+                {raw.length > 500 && '...\n\n(Showing first 500 characters)'}
+              </pre>
+            </div>
+          </section>
+        )}
+
+        {/* Main Workspace */}
+        <section className="panel overflow-hidden">
+          <div className="grid lg:grid-cols-12 gap-0 min-h-[70vh]">
+            {/* Actions Column */}
+            <div className="lg:col-span-3 border-r border-slate-200 bg-emerald-50/30">
+              <div className="flex items-center justify-center px-4 py-3 border-b bg-emerald-100/50">
+                <div className="text-sm font-semibold text-slate-700">Actions</div>
+              </div>
+              <div className="flex flex-col items-center justify-center h-[calc(70vh-60px)] p-4 space-y-3">
                 <button 
+                  id="analyze-button"
                   className="w-full btn btn-primary" 
                   onClick={handleAnalyze} 
                   disabled={!raw.trim() || loading}
                   title="Generate physiotherapy report"
-                  id="analyze-button"
                 >
                   {loading ? "⏳ Analyzing..." : "▶️ Generate Report"}
                 </button>
@@ -252,21 +291,21 @@ Or upload/capture images with text above to automatically extract content here."
                 </button>
                 
                 <button 
+                  id="export-docx-button"
                   className="w-full btn bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200" 
                   onClick={exportDocx} 
                   disabled={!previewHtml}
                   title="Download Word document"
-                  id="export-docx-button"
                 >
                   📄 Export DOCX
                 </button>
                 
                 <button 
+                  id="clear-button"
                   className="w-full btn bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200" 
                   onClick={handleClear} 
                   disabled={!raw && !previewHtml}
                   title="Clear all data"
-                  id="clear-button"
                 >
                   🗑️ Clear All
                 </button>
@@ -280,18 +319,18 @@ Or upload/capture images with text above to automatically extract content here."
             </div>
 
             {/* Preview Column */}
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-9">
               <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
                 <div className="text-sm font-semibold text-slate-700">Report Preview</div>
                 <div className="text-xs text-slate-500">{previewHtml ? "✅ Ready" : "⏳ Pending"}</div>
               </div>
-              <div className="p-4 h-[calc(70vh-60px)] overflow-y-auto" id="draft-preview">
+              <div id="draft-preview" className="p-4 h-[calc(70vh-60px)] overflow-y-auto">
                 {!previewHtml ? (
                   <div className="flex items-center justify-center h-full text-slate-400 text-center">
                     <div>
                       <div className="text-4xl mb-4">🏥</div>
-                      <div className="text-sm">Click <strong>Generate Report</strong> to create a professional clinical report</div>
-                      <div className="text-xs text-slate-500 mt-2">Patient details, assessments, and clinical findings will appear here</div>
+                      <div className="text-sm">Use text input, voice recording, or image upload to add clinical notes</div>
+                      <div className="text-xs text-slate-500 mt-2">Then click <strong>Generate Report</strong> to create professional documentation</div>
                     </div>
                   </div>
                 ) : (
@@ -307,28 +346,7 @@ Or upload/capture images with text above to automatically extract content here."
           {/* Mobile Layout */}
           <div className="lg:hidden">
             <div className="space-y-4 p-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-semibold text-slate-700">Clinical Notes</label>
-                  <div className="text-xs text-slate-500">{lines} lines • {chars} chars</div>
-                </div>
-                <textarea
-                  className="w-full h-40 p-3 border border-slate-200 rounded-lg resize-none font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Paste clinical notes or use image upload above..."
-                  value={raw}
-                  onChange={(e) => setRaw(e.target.value)}
-                />
-              </div>
-
               <div className="flex flex-wrap gap-2">
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  accept=".txt,.log,.csv,.json" 
-                  className="hidden" 
-                  onChange={handleFileChange} 
-                />
-                <button className="btn btn-sm" onClick={handleUploadClick}>📁 Upload</button>
                 <button 
                   className="btn btn-primary btn-sm" 
                   onClick={handleAnalyze} 
@@ -380,17 +398,24 @@ Or upload/capture images with text above to automatically extract content here."
 
         {/* Call to Action */}
         <section className="panel p-6 bg-gradient-to-r from-emerald-50 to-sky-50 text-center">
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">Ready to Edit Your Report?</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Multiple Ways to Create Reports</h3>
           <p className="text-slate-600 mb-4">
-            Use the rich text editor to customize your report, add formatting, and save it to your library.
+            Type your notes, record your voice, or upload images with text. PulseNote converts them all into professional clinical documentation.
           </p>
-          <button 
-            className="btn btn-primary" 
-            onClick={gotoEditor}
-            disabled={!raw.trim() && !previewHtml}
-          >
-            Open Report Editor
-          </button>
+          <div className="flex justify-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-emerald-600" />
+              <span>Text Input</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Mic className="w-4 h-4 text-emerald-600" />
+              <span>Voice Recording</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Upload className="w-4 h-4 text-emerald-600" />
+              <span>Image OCR</span>
+            </div>
+          </div>
         </section>
       </div>
     </div>
