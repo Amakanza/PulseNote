@@ -61,26 +61,26 @@ export const homePageTutorialSteps = [
 export const reportEditorTutorialSteps = [
   {
     target: '.prose',
-    title: 'Welcome to the Report Editor',
-    content: 'This is where you can edit and format your clinical reports. Click anywhere in the editor to start typing.',
+    title: 'Welcome to the Editor',
+    content: 'Edit your report with full formatting. Click anywhere to start typing and use the toolbar for styling.',
     position: 'bottom' as const
   },
   {
-    target: 'button[aria-label="Toggle bold"]',
-    title: 'Text Formatting',
-    content: 'Use these buttons to format your text. Make important findings bold or italic.',
+    target: 'button:contains("Bold")',
+    title: 'Format Text',
+    content: 'Use these tools to format your text. Make clinical findings bold, create lists, and add structure.',
     position: 'bottom' as const
   },
   {
-    target: 'button[aria-label="Set heading 1"]',
-    title: 'Document Structure',
-    content: 'Use headings to organize your report into clear sections like Assessment, Treatment, and Recommendations.',
+    target: 'button:contains("H1")',
+    title: 'Add Headings',
+    content: 'Organize your report with headings like Assessment, Treatment, and Recommendations.',
     position: 'bottom' as const
   },
   {
-    target: 'button[aria-label="Save to reports library"]',
+    target: 'button:contains("Save Report")',
     title: 'Save Your Work',
-    content: 'Save your report to your library to access it later and share with your team.',
+    content: 'Save to your library to access later and share with your team. Sign in to enable this feature.',
     position: 'bottom' as const
   }
 ];
@@ -88,26 +88,26 @@ export const reportEditorTutorialSteps = [
 export const reportViewerTutorialSteps = [
   {
     target: '.prose',
-    title: 'Report Content',
-    content: 'This is your saved report content. You can view the full formatted report here.',
+    title: 'Your Report',
+    content: 'View your complete formatted report. All patient details and clinical findings are organized professionally.',
     position: 'top' as const
   },
   {
     target: 'button:has(.lucide-edit)',
     title: 'Edit Report',
-    content: 'Click this button to edit your report using the rich text editor.',
+    content: 'Click to edit this report using the rich text editor with formatting tools.',
     position: 'bottom' as const
   },
   {
     target: 'button:has(.lucide-download)',
-    title: 'Download Report',
-    content: 'Export your report as a Word document for sharing or printing.',
+    title: 'Download',
+    content: 'Export as Word document for printing, sharing, or adding to medical records.',
     position: 'bottom' as const
   },
   {
     target: 'button:has(.lucide-share)',
-    title: 'Share Report',
-    content: 'Share your report with colleagues or copy the link to send to others.',
+    title: 'Share',
+    content: 'Share with colleagues or copy the link to send to team members.',
     position: 'bottom' as const
   }
 ];
@@ -116,19 +116,19 @@ export const workspacesTutorialSteps = [
   {
     target: 'button:has(.lucide-plus)',
     title: 'Create Workspace',
-    content: 'Create a new workspace to collaborate with your team on clinical reports and projects.',
+    content: 'Create workspaces to collaborate with your team on clinical reports and projects.',
     position: 'bottom' as const
   },
   {
     target: '.panel:has(h3)',
     title: 'Your Workspaces',
-    content: 'View and manage your workspaces here. Each workspace can have multiple team members with different permission levels.',
+    content: 'View and manage workspaces. Each can have multiple team members with different permissions.',
     position: 'top' as const
   },
   {
     target: 'button:has(.lucide-settings)',
     title: 'Workspace Settings',
-    content: 'Manage workspace settings, invite team members, and control access permissions.',
+    content: 'Manage settings, invite team members, and control access permissions.',
     position: 'left' as const
   }
 ];
